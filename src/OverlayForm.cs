@@ -1,7 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
-using System.Drawing.Imaging;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace Jietu
@@ -20,7 +21,8 @@ namespace Jietu
             NW,
             NE,
             SW,
-            SE
+            SE,
+            Draw
         }
 
         static bool _running;
@@ -40,7 +42,21 @@ namespace Jietu
         bool _busy;
         string _copiedNote;
         Timer _noteTimer;
+        readonly List<Mark> _marks = new List<Mark>();
+        AnnotateTool _tool = AnnotateTool.None;
+        Color _ink = Markup.Red;
+        Mark _draft;
+        Mark _replaced;
+        Panel _textFrame;
+        TextBox _editor;
+        bool _committing;
+        OcrForm _ocrForm;
         public ScrollCapture.Outcome Outcome;
+
+        bool Editing
+        {
+            get { return _textFrame != null && _textFrame.Visible; }
+        }
 
         public static bool TryGetCursorColor(out Color color)
         {
@@ -70,22 +86,7 @@ namespace Jietu
                 return false;
             }
 
-            form._copiedNote = "已复制 " + text;
-            if (form._noteTimer == null)
-            {
-                form._noteTimer = new Timer();
-                form._noteTimer.Interval = 1200;
-                form._noteTimer.Tick += (s, e) =>
-                {
-                    form._copiedNote = null;
-                    form._noteTimer.Stop();
-                    form.Invalidate();
-                };
-            }
-
-            form._noteTimer.Stop();
-            form._noteTimer.Start();
-            form.Invalidate();
+            form.ShowNote("已复制 " + text, 1200);
             return true;
         }
 
@@ -163,11 +164,56 @@ namespace Jietu
             _toolbar.VerticalButton.Click += (s, e) => StartLong(true);
             _toolbar.HorizontalButton.Click += (s, e) => StartLong(false);
             _toolbar.DismissButton.Click += (s, e) => Cancel();
+            _toolbar.RectButton.Click += (s, e) => SetTool(AnnotateTool.Rect);
+            _toolbar.ArrowButton.Click += (s, e) => SetTool(AnnotateTool.Arrow);
+            _toolbar.TextButton.Click += (s, e) => SetTool(AnnotateTool.Text);
+            _toolbar.OcrButton.Click += (s, e) => RecognizeText();
+            _toolbar.UndoButton.Click += (s, e) => Undo();
+            _toolbar.InkChanged += (s, e) =>
+            {
+                _ink = _toolbar.Ink;
+                ApplyEditorInk(_ink);
+            };
+            _ink = _toolbar.Ink;
             _toolbar.KeyDown += (s, e) =>
             {
                 if (e.KeyCode == Keys.Escape)
                 {
-                    Cancel();
+                    if (Editing)
+                    {
+                        CancelText();
+                    }
+                    else
+                    {
+                        Cancel();
+                    }
+
+                    e.Handled = true;
+                }
+                else if (e.Control && e.KeyCode == Keys.Z)
+                {
+                    Undo();
+                    e.Handled = true;
+                }
+                else if (e.KeyCode == Keys.Enter)
+                {
+                    CopyStill();
+                    e.Handled = true;
+                }
+                else if (e.Control && e.KeyCode == Keys.S)
+                {
+                    SaveStill();
+                    e.Handled = true;
+                }
+                else if (e.KeyCode == Keys.Down)
+                {
+                    StartLong(true);
+                    e.Handled = true;
+                }
+                else if (e.KeyCode == Keys.Right)
+                {
+                    StartLong(false);
+                    e.Handled = true;
                 }
             };
         }
@@ -232,12 +278,48 @@ namespace Jietu
             }
 
             Point p = ToImage(e.Location);
+            if (Editing)
+            {
+                CommitText();
+            }
+
+            if (_hasSel && _tool != AnnotateTool.None)
+            {
+                if (Inside(p))
+                {
+                    if (_tool == AnnotateTool.Text)
+                    {
+                        BeginText(p);
+                    }
+                    else
+                    {
+                        _drag = DragMode.Draw;
+                        _down = p;
+                        _draft = new Mark();
+                        _draft.Kind = _tool == AnnotateTool.Arrow ? MarkKind.Arrow : MarkKind.Rect;
+                        _draft.Color = _ink;
+                        _draft.Thickness = Markup.Thickness;
+                        _draft.Start = p;
+                        _draft.End = p;
+                        _draft.FontPx = Markup.FontPx;
+                    }
+                }
+
+                Invalidate();
+                return;
+            }
+
             if (_hasSel)
             {
                 DragMode hit = HitTest(p);
                 if (hit == DragMode.None)
                 {
                     _hasSel = false;
+                    _marks.Clear();
+                    _draft = null;
+                    _replaced = null;
+                    _tool = AnnotateTool.None;
+                    _toolbar.SetActive(AnnotateTool.None);
                     HideToolbar();
                     _drag = DragMode.New;
                     _down = p;
@@ -266,7 +348,19 @@ namespace Jietu
             _mouse = ToImage(e.Location);
             if (_drag == DragMode.None)
             {
-                Cursor = _hasSel ? CursorFor(HitTest(_mouse)) : Cursors.Cross;
+                if (_tool == AnnotateTool.Text)
+                {
+                    Cursor = Cursors.IBeam;
+                }
+                else if (_tool == AnnotateTool.Rect || _tool == AnnotateTool.Arrow)
+                {
+                    Cursor = Cursors.Cross;
+                }
+                else
+                {
+                    Cursor = _hasSel ? CursorFor(HitTest(_mouse)) : Cursors.Cross;
+                }
+
                 if (_hasSel)
                 {
                     return;
@@ -277,6 +371,17 @@ namespace Jietu
             }
 
             Point p = ToImage(e.Location);
+            if (_drag == DragMode.Draw)
+            {
+                if (_draft != null)
+                {
+                    _draft.End = ClampToSel(p);
+                }
+
+                Invalidate();
+                return;
+            }
+
             if (_drag == DragMode.New)
             {
                 _sel = Normalize(_down, p);
@@ -314,6 +419,19 @@ namespace Jietu
                 return;
             }
 
+            if (_drag == DragMode.Draw)
+            {
+                _drag = DragMode.None;
+                if (_draft != null && KeepDraft(_draft))
+                {
+                    _marks.Add(_draft);
+                }
+
+                _draft = null;
+                Invalidate();
+                return;
+            }
+
             _drag = DragMode.None;
             if (_sel.Width >= 8 && _sel.Height >= 8)
             {
@@ -335,7 +453,25 @@ namespace Jietu
         {
             if (keyData == Keys.Escape)
             {
+                if (Editing)
+                {
+                    CancelText();
+                    return true;
+                }
+
                 Cancel();
+                return true;
+            }
+
+            if (Editing && keyData == Keys.Enter)
+            {
+                CommitText();
+                return true;
+            }
+
+            if (!Editing && keyData == (Keys.Control | Keys.Z))
+            {
+                Undo();
                 return true;
             }
 
@@ -394,7 +530,8 @@ namespace Jietu
                 }
 
                 DrawSizeTag(g, dest);
-                if (_hasSel)
+                DrawMarks(g);
+                if (_hasSel && _tool == AnnotateTool.None)
                 {
                     DrawHandles(g, dest);
                 }
@@ -412,9 +549,26 @@ namespace Jietu
             string text = _copiedNote;
             if (string.IsNullOrEmpty(text))
             {
-                text = _hasSel
-                    ? "Enter 复制      ↓ 纵向长图      → 横向长图      Esc 取消"
-                    : "拖拽选择区域，Esc 取消";
+                if (_tool == AnnotateTool.Rect)
+                {
+                    text = "拖拽画方框    再点「矩形」退出    Ctrl+Z 撤销";
+                }
+                else if (_tool == AnnotateTool.Arrow)
+                {
+                    text = "拖拽画箭头    再点「箭头」退出    Ctrl+Z 撤销";
+                }
+                else if (_tool == AnnotateTool.Text)
+                {
+                    text = "点击选区输入文字，Enter 完成    再点「文字」退出";
+                }
+                else if (_hasSel)
+                {
+                    text = "红框 / 箭头 / 文字 / 识别    Enter 复制    ↓→ 长图    Esc 取消";
+                }
+                else
+                {
+                    text = "拖拽选择区域，Esc 取消";
+                }
             }
             using (var font = Theme.UiFont())
             {
@@ -668,9 +822,10 @@ namespace Jietu
                 return;
             }
 
+            CommitText();
             try
             {
-                using (Bitmap crop = _shot.Clone(_sel, PixelFormat.Format24bppRgb))
+                using (Bitmap crop = Markup.Compose(_shot, _sel, _marks))
                 {
                     ScreenGrab.CopyToClipboard(crop);
                 }
@@ -695,6 +850,7 @@ namespace Jietu
                 return;
             }
 
+            CommitText();
             TopMost = false;
             _toolbar.TopMost = false;
             using (var dialog = new SaveFileDialog())
@@ -712,7 +868,7 @@ namespace Jietu
 
                 try
                 {
-                    using (Bitmap crop = _shot.Clone(_sel, PixelFormat.Format24bppRgb))
+                    using (Bitmap crop = Markup.Compose(_shot, _sel, _marks))
                     {
                         ScreenGrab.Save(crop, dialog.FileName);
                     }
@@ -739,6 +895,7 @@ namespace Jietu
                 return;
             }
 
+            CommitText();
             _busy = true;
             HideToolbar();
             Hide();
@@ -830,6 +987,415 @@ namespace Jietu
 
             Outcome = null;
             Close();
+        }
+
+        void ShowNote(string text, int milliseconds)
+        {
+            _copiedNote = text;
+            if (_noteTimer == null)
+            {
+                _noteTimer = new Timer();
+                _noteTimer.Tick += (s, e) =>
+                {
+                    _copiedNote = null;
+                    _noteTimer.Stop();
+                    Invalidate();
+                };
+            }
+
+            _noteTimer.Stop();
+            if (!string.IsNullOrEmpty(text) && milliseconds > 0)
+            {
+                _noteTimer.Interval = milliseconds;
+                _noteTimer.Start();
+            }
+
+            Invalidate();
+        }
+
+        void SetTool(AnnotateTool tool)
+        {
+            if (_busy || !_hasSel)
+            {
+                return;
+            }
+
+            CommitText();
+            _tool = _tool == tool ? AnnotateTool.None : tool;
+            _toolbar.SetActive(_tool);
+            Invalidate();
+        }
+
+        void Undo()
+        {
+            if (_busy || _marks.Count == 0)
+            {
+                return;
+            }
+
+            _marks.RemoveAt(_marks.Count - 1);
+            Invalidate();
+        }
+
+        void RecognizeText()
+        {
+            if (_busy || !_hasSel)
+            {
+                return;
+            }
+
+            CommitText();
+            Bitmap crop;
+            try
+            {
+                crop = ScreenGrab.Crop(_shot, _sel);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, "识别文字", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            _busy = true;
+            ShowNote("正在识别文字…", 0);
+            Task<string> task = Task.Run(new Func<string>(() =>
+            {
+                try
+                {
+                    return OcrText.Recognize(crop);
+                }
+                finally
+                {
+                    crop.Dispose();
+                }
+            }));
+            task.ContinueWith(done =>
+            {
+                if (!IsHandleCreated || IsDisposed)
+                {
+                    return;
+                }
+
+                try
+                {
+                    BeginInvoke(new Action(() => FinishRecognize(done)));
+                }
+                catch (InvalidOperationException)
+                {
+                }
+            });
+        }
+
+        void FinishRecognize(Task<string> task)
+        {
+            _busy = false;
+            if (IsDisposed)
+            {
+                return;
+            }
+
+            if (task.IsFaulted || task.IsCanceled)
+            {
+                ShowNote(null, 0);
+                Exception ex = task.Exception == null ? null : task.Exception.GetBaseException();
+                TopMost = false;
+                MessageBox.Show(this, ex == null ? "文字识别失败" : ex.Message, "识别文字", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                if (!IsDisposed)
+                {
+                    TopMost = true;
+                }
+
+                return;
+            }
+
+            string text = task.Result == null ? "" : task.Result.Trim();
+            if (text.Length == 0)
+            {
+                ShowNote("没有识别到文字", 1800);
+                return;
+            }
+
+            try
+            {
+                ScreenGrab.CopyText(text);
+                ShowNote("已复制识别文字", 1800);
+            }
+            catch (Exception ex)
+            {
+                ShowNote("识别完成", 1800);
+                TopMost = false;
+                MessageBox.Show(this, ex.Message, "识别文字", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                if (!IsDisposed)
+                {
+                    TopMost = true;
+                }
+            }
+
+            ShowOcr(text);
+        }
+
+        void ShowOcr(string text)
+        {
+            if (IsDisposed)
+            {
+                return;
+            }
+
+            if (_ocrForm != null && !_ocrForm.IsDisposed)
+            {
+                _ocrForm.Close();
+            }
+
+            _ocrForm = new OcrForm(text);
+            _ocrForm.Show(this);
+            Rectangle monitor = Screen.FromControl(this).WorkingArea;
+            int x = monitor.Left + Math.Max(0, (monitor.Width - _ocrForm.Width) / 2);
+            int y = monitor.Top + Math.Max(0, (monitor.Height - _ocrForm.Height) / 2);
+            _ocrForm.Location = new Point(x, y);
+        }
+
+        void BeginText(Point imagePoint)
+        {
+            CommitText();
+            int index = HitText(imagePoint);
+            string existing = "";
+            Point at = imagePoint;
+            Color color = _ink;
+            _replaced = null;
+            if (index >= 0)
+            {
+                _replaced = _marks[index];
+                _marks.RemoveAt(index);
+                existing = _replaced.Text ?? "";
+                at = _replaced.Start;
+                color = _replaced.Color;
+            }
+
+            EnsureEditor();
+            ApplyEditorInk(color);
+            Point client = ToClientPoint(at);
+            if (index >= 0)
+            {
+                client = new Point(client.X - 2, client.Y - 2);
+            }
+
+            _textFrame.Location = client;
+            _textFrame.Visible = true;
+            _textFrame.BringToFront();
+            _editor.Text = existing;
+            GrowEditor();
+            BeginInvoke(new Action(() =>
+            {
+                if (Editing && !IsDisposed)
+                {
+                    _editor.Focus();
+                    _editor.SelectionStart = _editor.TextLength;
+                    _editor.SelectionLength = 0;
+                }
+            }));
+            Invalidate();
+        }
+
+        void CommitText()
+        {
+            if (_committing || !Editing)
+            {
+                return;
+            }
+
+            _committing = true;
+            try
+            {
+                string text = _editor.Text ?? "";
+                int frameWidth = _textFrame.Width;
+                Point origin = ToImage(new Point(_textFrame.Left + 2, _textFrame.Top + 2));
+                Color color = _editor.ForeColor;
+                _textFrame.Visible = false;
+                _replaced = null;
+                if (text.Trim().Length == 0)
+                {
+                    Invalidate();
+                    return;
+                }
+
+                text = text.Replace("\r\n", "\n").Replace("\r", "\n");
+                int imageWrap = frameWidth * _shot.Width / Math.Max(1, ClientSize.Width);
+                var mark = new Mark();
+                mark.Kind = MarkKind.Text;
+                mark.Color = color;
+                mark.Thickness = Markup.Thickness;
+                mark.Start = origin;
+                mark.End = origin;
+                mark.Text = text;
+                mark.FontPx = Markup.FontPx;
+                mark.WrapWidth = Math.Max(20, imageWrap - 4);
+                _marks.Add(mark);
+                Invalidate();
+            }
+            finally
+            {
+                _committing = false;
+            }
+        }
+
+        void CancelText()
+        {
+            if (_textFrame != null)
+            {
+                _textFrame.Visible = false;
+            }
+
+            if (_replaced != null)
+            {
+                _marks.Add(_replaced);
+                _replaced = null;
+            }
+
+            Invalidate();
+        }
+
+        void ApplyEditorInk(Color color)
+        {
+            if (_editor == null)
+            {
+                return;
+            }
+
+            _editor.ForeColor = color;
+            if (_textFrame != null)
+            {
+                _textFrame.BackColor = color;
+            }
+
+            int sum = color.R + color.G + color.B;
+            _editor.BackColor = sum > 600 ? Color.FromArgb(32, 32, 32) : Color.White;
+        }
+
+        void EnsureEditor()
+        {
+            if (_editor != null)
+            {
+                return;
+            }
+
+            _textFrame = new Panel();
+            _textFrame.BackColor = _ink;
+            _textFrame.Padding = new Padding(2);
+            _textFrame.Visible = false;
+            _textFrame.Cursor = Cursors.IBeam;
+            _editor = new TextBox();
+            _editor.BorderStyle = BorderStyle.None;
+            _editor.Multiline = true;
+            _editor.AcceptsReturn = true;
+            _editor.WordWrap = true;
+            _editor.Dock = DockStyle.Fill;
+            _editor.Font = new Font("Microsoft YaHei UI", Markup.FontPx, FontStyle.Regular, GraphicsUnit.Pixel);
+            _editor.BackColor = Color.White;
+            _editor.ForeColor = _ink;
+            _editor.TextChanged += (s, e) => GrowEditor();
+            _textFrame.Controls.Add(_editor);
+            Controls.Add(_textFrame);
+        }
+
+        void GrowEditor()
+        {
+            if (_editor == null || _textFrame == null)
+            {
+                return;
+            }
+
+            string text = _editor.Text;
+            if (string.IsNullOrEmpty(text))
+            {
+                text = "字";
+            }
+
+            int maxWidth = Math.Max(80, Math.Min(480, ClientSize.Width - 8));
+            Size single = TextRenderer.MeasureText(text + " ", _editor.Font, new Size(4000, 200), TextFormatFlags.SingleLine | TextFormatFlags.NoPadding | TextFormatFlags.NoPrefix);
+            int width = Math.Min(maxWidth, Math.Max(48, single.Width + 12));
+            Size block = TextRenderer.MeasureText(text + " ", _editor.Font, new Size(Math.Max(8, width - 8), 2000), TextFormatFlags.WordBreak | TextFormatFlags.NoPadding | TextFormatFlags.NoPrefix | TextFormatFlags.TextBoxControl);
+            _textFrame.Size = new Size(width, Math.Max(Markup.FontPx + 12, block.Height + 12));
+            int x = _textFrame.Left;
+            int y = _textFrame.Top;
+            if (x + _textFrame.Width > ClientSize.Width - 2)
+            {
+                x = Math.Max(2, ClientSize.Width - _textFrame.Width - 2);
+            }
+
+            if (y + _textFrame.Height > ClientSize.Height - 2)
+            {
+                y = Math.Max(2, ClientSize.Height - _textFrame.Height - 2);
+            }
+
+            if (x < 2) x = 2;
+            if (y < 2) y = 2;
+            _textFrame.Location = new Point(x, y);
+        }
+
+        int HitText(Point point)
+        {
+            for (int i = _marks.Count - 1; i >= 0; i--)
+            {
+                if (Markup.TextBounds(_marks[i]).Contains(point))
+                {
+                    return i;
+                }
+            }
+
+            return -1;
+        }
+
+        void DrawMarks(Graphics g)
+        {
+            if (_marks.Count == 0 && _draft == null)
+            {
+                return;
+            }
+
+            GraphicsState state = g.Save();
+            float sx = ClientSize.Width / (float)Math.Max(1, _shot.Width);
+            float sy = ClientSize.Height / (float)Math.Max(1, _shot.Height);
+            g.ScaleTransform(sx, sy);
+            g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
+            for (int i = 0; i < _marks.Count; i++)
+            {
+                Markup.Draw(g, _marks[i], 1f, 0f, 0f);
+            }
+
+            if (_draft != null)
+            {
+                Markup.Draw(g, _draft, 1f, 0f, 0f);
+            }
+
+            g.Restore(state);
+        }
+
+        bool Inside(Point point)
+        {
+            return _hasSel && point.X >= _sel.Left && point.Y >= _sel.Top && point.X <= _sel.Right && point.Y <= _sel.Bottom;
+        }
+
+        Point ClampToSel(Point point)
+        {
+            int x = point.X;
+            int y = point.Y;
+            if (x < _sel.Left) x = _sel.Left;
+            if (y < _sel.Top) y = _sel.Top;
+            if (x > _sel.Right) x = _sel.Right;
+            if (y > _sel.Bottom) y = _sel.Bottom;
+            return new Point(x, y);
+        }
+
+        static bool KeepDraft(Mark mark)
+        {
+            int dx = mark.End.X - mark.Start.X;
+            int dy = mark.End.Y - mark.Start.Y;
+            if (mark.Kind == MarkKind.Arrow)
+            {
+                return dx * dx + dy * dy >= 36;
+            }
+
+            return Math.Abs(dx) >= 4 && Math.Abs(dy) >= 4;
         }
 
         Point ToImage(Point client)

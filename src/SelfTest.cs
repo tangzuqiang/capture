@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.Drawing.Text;
 using System.IO;
 using System.Windows.Forms;
 
@@ -20,6 +21,9 @@ namespace Jietu
             failed += RunCase("small shift stays exact", TestSmallShift);
             failed += RunCase("settings remembered", TestSettingsRemembered);
             failed += RunCase("color text", TestColorText);
+            failed += RunCase("markup", TestMarkup);
+            failed += RunCase("toolbar tools", TestToolbarTools);
+            failed += RunCase("ocr text", TestOcr);
             if (failed == 0)
             {
                 Console.WriteLine("SELFTEST OK");
@@ -333,6 +337,154 @@ namespace Jietu
             }
 
             return null;
+        }
+
+        static string TestMarkup()
+        {
+            using (var source = new Bitmap(160, 100, PixelFormat.Format24bppRgb))
+            {
+                source.SetResolution(96, 96);
+                using (Graphics g = Graphics.FromImage(source))
+                {
+                    g.Clear(Color.White);
+                }
+
+                var marks = new List<Mark>();
+                var box = new Mark();
+                box.Kind = MarkKind.Rect;
+                box.Color = Markup.Red;
+                box.Thickness = Markup.Thickness;
+                box.Start = new Point(10, 10);
+                box.End = new Point(70, 46);
+                marks.Add(box);
+
+                var arrow = new Mark();
+                arrow.Kind = MarkKind.Arrow;
+                arrow.Color = Markup.Red;
+                arrow.Thickness = Markup.Thickness;
+                arrow.Start = new Point(16, 62);
+                arrow.End = new Point(90, 62);
+                marks.Add(arrow);
+
+                var text = new Mark();
+                text.Kind = MarkKind.Text;
+                text.Color = Markup.Red;
+                text.Thickness = Markup.Thickness;
+                text.FontPx = Markup.FontPx;
+                text.Start = new Point(96, 14);
+                text.Text = "注";
+                marks.Add(text);
+
+                using (Bitmap baked = Markup.Compose(source, new Rectangle(0, 0, source.Width, source.Height), marks))
+                {
+                    if (!AnyPixel(baked, new Rectangle(8, 8, 64, 10), IsRed))
+                    {
+                        return "rectangle did not draw";
+                    }
+
+                    if (!AnyPixel(baked, new Rectangle(18, 56, 40, 14), IsRed))
+                    {
+                        return "arrow did not draw";
+                    }
+
+                    if (!AnyPixel(baked, new Rectangle(90, 8, 50, 36), IsRed))
+                    {
+                        return "text did not draw";
+                    }
+                }
+
+                using (Bitmap shifted = Markup.Compose(source, new Rectangle(10, 10, 80, 70), marks))
+                {
+                    if (!AnyPixel(shifted, new Rectangle(0, 0, 50, 10), IsRed))
+                    {
+                        return "cropped rectangle is not at the crop origin";
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        static string TestToolbarTools()
+        {
+            using (var bar = new ToolbarForm())
+            {
+                bar.CreateControl();
+                if (bar.RectButton == null || bar.ArrowButton == null || bar.TextButton == null || bar.OcrButton == null || bar.UndoButton == null)
+                {
+                    return "missing tool button";
+                }
+
+                if (bar.Ink.ToArgb() != Markup.Red.ToArgb())
+                {
+                    return "default ink " + ColorText.Hex(bar.Ink);
+                }
+
+                Size size = bar.PreferredSize;
+                if (size.Width < 280 || size.Width > 920 || size.Height < 68 || size.Height > 180)
+                {
+                    return "toolbar " + size.Width + "x" + size.Height;
+                }
+            }
+
+            return null;
+        }
+
+        static string TestOcr()
+        {
+            try
+            {
+                using (var bitmap = new Bitmap(760, 240, PixelFormat.Format24bppRgb))
+                {
+                    bitmap.SetResolution(96, 96);
+                    using (Graphics g = Graphics.FromImage(bitmap))
+                    using (var font = new Font("Microsoft YaHei UI", 86f, FontStyle.Bold, GraphicsUnit.Pixel))
+                    using (var brush = new SolidBrush(Color.Black))
+                    {
+                        g.Clear(Color.White);
+                        g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
+                        g.DrawString("AB12", font, brush, 36, 58);
+                    }
+
+                    string text = OcrText.Recognize(bitmap) ?? "";
+                    string compact = text.Replace(" ", "").Replace("\r", "").Replace("\n", "");
+                    if (compact.IndexOf("AB12", StringComparison.OrdinalIgnoreCase) < 0)
+                    {
+                        return "ocr [" + text + "]";
+                    }
+                }
+            }
+            catch (NotSupportedException)
+            {
+                return null;
+            }
+
+            return null;
+        }
+
+        static bool AnyPixel(Bitmap bitmap, Rectangle area, Func<Color, bool> test)
+        {
+            int x0 = Math.Max(0, area.Left);
+            int y0 = Math.Max(0, area.Top);
+            int x1 = Math.Min(bitmap.Width - 1, area.Right - 1);
+            int y1 = Math.Min(bitmap.Height - 1, area.Bottom - 1);
+            for (int y = y0; y <= y1; y++)
+            {
+                for (int x = x0; x <= x1; x++)
+                {
+                    if (test(bitmap.GetPixel(x, y)))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        static bool IsRed(Color color)
+        {
+            return color.R > 170 && color.R > color.G + 60 && color.R > color.B + 60;
         }
 
         static string TestSettingsRemembered()

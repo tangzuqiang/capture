@@ -26,6 +26,9 @@ if not exist bin mkdir bin
   src\NativeMethods.cs ^
   src\AppSettings.cs ^
   src\Theme.cs ^
+  src\Markup.cs ^
+  src\OcrText.cs ^
+  src\OcrForm.cs ^
   src\ScreenGrab.cs ^
   src\ImageStitcher.cs ^
   src\ScrollCapture.cs ^
