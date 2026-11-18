@@ -46,17 +46,10 @@ namespace Jietu
         AnnotateTool _tool = AnnotateTool.None;
         Color _ink = Markup.Red;
         Mark _draft;
-        Mark _replaced;
-        Panel _textFrame;
-        TextBox _editor;
-        bool _committing;
+        int _editIndex = -1;
+        bool _styleLock;
         OcrForm _ocrForm;
         public ScrollCapture.Outcome Outcome;
-
-        bool Editing
-        {
-            get { return _textFrame != null && _textFrame.Visible; }
-        }
 
         public static bool TryGetCursorColor(out Color color)
         {
@@ -165,38 +158,49 @@ namespace Jietu
             _toolbar.HorizontalButton.Click += (s, e) => StartLong(false);
             _toolbar.DismissButton.Click += (s, e) => Cancel();
             _toolbar.RectButton.Click += (s, e) => SetTool(AnnotateTool.Rect);
+            _toolbar.EllipseButton.Click += (s, e) => SetTool(AnnotateTool.Ellipse);
             _toolbar.ArrowButton.Click += (s, e) => SetTool(AnnotateTool.Arrow);
+            _toolbar.PenButton.Click += (s, e) => SetTool(AnnotateTool.Pen);
+            _toolbar.DoodleButton.Click += (s, e) => SetTool(AnnotateTool.Doodle);
             _toolbar.TextButton.Click += (s, e) => SetTool(AnnotateTool.Text);
+            _toolbar.PinButton.Click += (s, e) => SetTool(AnnotateTool.Pin);
             _toolbar.OcrButton.Click += (s, e) => RecognizeText();
             _toolbar.UndoButton.Click += (s, e) => Undo();
-            _toolbar.InkChanged += (s, e) =>
-            {
-                _ink = _toolbar.Ink;
-                ApplyEditorInk(_ink);
-            };
+            _toolbar.InkChanged += (s, e) => SyncEditedText();
+            _toolbar.PhraseChanged += (s, e) => SyncEditedText();
             _ink = _toolbar.Ink;
             _toolbar.KeyDown += (s, e) =>
             {
                 if (e.KeyCode == Keys.Escape)
                 {
-                    if (Editing)
+                    if (_toolbar.PhraseFocused)
                     {
-                        CancelText();
-                    }
-                    else
-                    {
-                        Cancel();
+                        Focus();
+                        e.Handled = true;
+                        return;
                     }
 
+                    Cancel();
                     e.Handled = true;
                 }
                 else if (e.Control && e.KeyCode == Keys.Z)
                 {
+                    if (_toolbar.PhraseFocused)
+                    {
+                        return;
+                    }
+
                     Undo();
                     e.Handled = true;
                 }
                 else if (e.KeyCode == Keys.Enter)
                 {
+                    if (_toolbar.PhraseFocused)
+                    {
+                        e.Handled = true;
+                        return;
+                    }
+
                     CopyStill();
                     e.Handled = true;
                 }
@@ -278,30 +282,34 @@ namespace Jietu
             }
 
             Point p = ToImage(e.Location);
-            if (Editing)
-            {
-                CommitText();
-            }
-
             if (_hasSel && _tool != AnnotateTool.None)
             {
                 if (Inside(p))
                 {
                     if (_tool == AnnotateTool.Text)
                     {
-                        BeginText(p);
+                        PlaceText(p);
+                    }
+                    else if (_tool == AnnotateTool.Pin)
+                    {
+                        PlacePin(p);
                     }
                     else
                     {
                         _drag = DragMode.Draw;
                         _down = p;
                         _draft = new Mark();
-                        _draft.Kind = _tool == AnnotateTool.Arrow ? MarkKind.Arrow : MarkKind.Rect;
-                        _draft.Color = _ink;
-                        _draft.Thickness = Markup.Thickness;
+                        _draft.Kind = KindFor(_tool);
+                        _draft.Color = InkNow();
+                        _draft.Thickness = ThickFor(_tool);
                         _draft.Start = p;
                         _draft.End = p;
                         _draft.FontPx = Markup.FontPx;
+                        if (_draft.Kind == MarkKind.Pen || _draft.Kind == MarkKind.Doodle)
+                        {
+                            _draft.Points = new List<Point>();
+                            _draft.Points.Add(p);
+                        }
                     }
                 }
 
@@ -317,7 +325,7 @@ namespace Jietu
                     _hasSel = false;
                     _marks.Clear();
                     _draft = null;
-                    _replaced = null;
+                    _editIndex = -1;
                     _tool = AnnotateTool.None;
                     _toolbar.SetActive(AnnotateTool.None);
                     HideToolbar();
@@ -352,7 +360,7 @@ namespace Jietu
                 {
                     Cursor = Cursors.IBeam;
                 }
-                else if (_tool == AnnotateTool.Rect || _tool == AnnotateTool.Arrow)
+                else if (_tool != AnnotateTool.None)
                 {
                     Cursor = Cursors.Cross;
                 }
@@ -375,7 +383,18 @@ namespace Jietu
             {
                 if (_draft != null)
                 {
-                    _draft.End = ClampToSel(p);
+                    Point clamped = ClampToSel(p);
+                    _draft.End = clamped;
+                    if (_draft.Points != null && _draft.Points.Count > 0)
+                    {
+                        Point last = _draft.Points[_draft.Points.Count - 1];
+                        int dx = clamped.X - last.X;
+                        int dy = clamped.Y - last.Y;
+                        if (dx * dx + dy * dy >= 4)
+                        {
+                            _draft.Points.Add(clamped);
+                        }
+                    }
                 }
 
                 Invalidate();
@@ -453,9 +472,9 @@ namespace Jietu
         {
             if (keyData == Keys.Escape)
             {
-                if (Editing)
+                if (_toolbar.PhraseFocused)
                 {
-                    CancelText();
+                    Focus();
                     return true;
                 }
 
@@ -463,13 +482,7 @@ namespace Jietu
                 return true;
             }
 
-            if (Editing && keyData == Keys.Enter)
-            {
-                CommitText();
-                return true;
-            }
-
-            if (!Editing && keyData == (Keys.Control | Keys.Z))
+            if (keyData == (Keys.Control | Keys.Z) && !_toolbar.PhraseFocused)
             {
                 Undo();
                 return true;
@@ -551,19 +564,35 @@ namespace Jietu
             {
                 if (_tool == AnnotateTool.Rect)
                 {
-                    text = "拖拽画方框    再点「矩形」退出    Ctrl+Z 撤销";
+                    text = "拖拽画方框    再点图标退出    Ctrl+Z 撤回";
+                }
+                else if (_tool == AnnotateTool.Ellipse)
+                {
+                    text = "拖拽画圆圈    再点图标退出    Ctrl+Z 撤回";
                 }
                 else if (_tool == AnnotateTool.Arrow)
                 {
-                    text = "拖拽画箭头    再点「箭头」退出    Ctrl+Z 撤销";
+                    text = "拖拽画箭头    再点图标退出    Ctrl+Z 撤回";
+                }
+                else if (_tool == AnnotateTool.Pen)
+                {
+                    text = "按住拖动画笔    再点图标退出    Ctrl+Z 撤回";
+                }
+                else if (_tool == AnnotateTool.Doodle)
+                {
+                    text = "按住拖动涂鸦    再点图标退出    Ctrl+Z 撤回";
                 }
                 else if (_tool == AnnotateTool.Text)
                 {
-                    text = "点击选区输入文字，Enter 完成    再点「文字」退出";
+                    text = "在工具栏输入最多 16 个字，再点到画面上";
+                }
+                else if (_tool == AnnotateTool.Pin)
+                {
+                    text = "点击画面钉上标记    再点图标退出";
                 }
                 else if (_hasSel)
                 {
-                    text = "红框 / 箭头 / 文字 / 识别    Enter 复制    ↓→ 长图    Esc 取消";
+                    text = "悬停图标可看名称    Enter 复制    ↓→ 长图    Esc 取消";
                 }
                 else
                 {
@@ -822,7 +851,6 @@ namespace Jietu
                 return;
             }
 
-            CommitText();
             try
             {
                 using (Bitmap crop = Markup.Compose(_shot, _sel, _marks))
@@ -850,7 +878,6 @@ namespace Jietu
                 return;
             }
 
-            CommitText();
             TopMost = false;
             _toolbar.TopMost = false;
             using (var dialog = new SaveFileDialog())
@@ -895,7 +922,6 @@ namespace Jietu
                 return;
             }
 
-            CommitText();
             _busy = true;
             HideToolbar();
             Hide();
@@ -1020,9 +1046,19 @@ namespace Jietu
                 return;
             }
 
-            CommitText();
+            _editIndex = -1;
             _tool = _tool == tool ? AnnotateTool.None : tool;
             _toolbar.SetActive(_tool);
+            if (_toolbar.Visible)
+            {
+                PlaceToolbar();
+            }
+
+            if (_tool == AnnotateTool.Text)
+            {
+                _toolbar.FocusPhrase();
+            }
+
             Invalidate();
         }
 
@@ -1034,6 +1070,11 @@ namespace Jietu
             }
 
             _marks.RemoveAt(_marks.Count - 1);
+            if (_editIndex >= _marks.Count)
+            {
+                _editIndex = -1;
+            }
+
             Invalidate();
         }
 
@@ -1044,7 +1085,6 @@ namespace Jietu
                 return;
             }
 
-            CommitText();
             Bitmap crop;
             try
             {
@@ -1154,182 +1194,122 @@ namespace Jietu
             _ocrForm.Location = new Point(x, y);
         }
 
-        void BeginText(Point imagePoint)
+        void PlaceText(Point imagePoint)
         {
-            CommitText();
             int index = HitText(imagePoint);
-            string existing = "";
-            Point at = imagePoint;
-            Color color = _ink;
-            _replaced = null;
             if (index >= 0)
             {
-                _replaced = _marks[index];
-                _marks.RemoveAt(index);
-                existing = _replaced.Text ?? "";
-                at = _replaced.Start;
-                color = _replaced.Color;
-            }
-
-            EnsureEditor();
-            ApplyEditorInk(color);
-            Point client = ToClientPoint(at);
-            if (index >= 0)
-            {
-                client = new Point(client.X - 2, client.Y - 2);
-            }
-
-            _textFrame.Location = client;
-            _textFrame.Visible = true;
-            _textFrame.BringToFront();
-            _editor.Text = existing;
-            GrowEditor();
-            BeginInvoke(new Action(() =>
-            {
-                if (Editing && !IsDisposed)
+                _styleLock = true;
+                try
                 {
-                    _editor.Focus();
-                    _editor.SelectionStart = _editor.TextLength;
-                    _editor.SelectionLength = 0;
+                    _editIndex = index;
+                    _toolbar.LoadPhrase(_marks[index].Text, _marks[index].Color);
+                    _ink = Color.FromArgb(255, _marks[index].Color);
                 }
-            }));
-            Invalidate();
-        }
-
-        void CommitText()
-        {
-            if (_committing || !Editing)
-            {
-                return;
-            }
-
-            _committing = true;
-            try
-            {
-                string text = _editor.Text ?? "";
-                int frameWidth = _textFrame.Width;
-                Point origin = ToImage(new Point(_textFrame.Left + 2, _textFrame.Top + 2));
-                Color color = _editor.ForeColor;
-                _textFrame.Visible = false;
-                _replaced = null;
-                if (text.Trim().Length == 0)
+                finally
                 {
-                    Invalidate();
-                    return;
+                    _styleLock = false;
                 }
 
-                text = text.Replace("\r\n", "\n").Replace("\r", "\n");
-                int imageWrap = frameWidth * _shot.Width / Math.Max(1, ClientSize.Width);
-                var mark = new Mark();
-                mark.Kind = MarkKind.Text;
-                mark.Color = color;
-                mark.Thickness = Markup.Thickness;
-                mark.Start = origin;
-                mark.End = origin;
-                mark.Text = text;
-                mark.FontPx = Markup.FontPx;
-                mark.WrapWidth = Math.Max(20, imageWrap - 4);
-                _marks.Add(mark);
+                _toolbar.FocusPhrase();
                 Invalidate();
-            }
-            finally
-            {
-                _committing = false;
-            }
-        }
-
-        void CancelText()
-        {
-            if (_textFrame != null)
-            {
-                _textFrame.Visible = false;
+                return;
             }
 
-            if (_replaced != null)
+            string text = (_toolbar.Phrase ?? "").Trim();
+            if (text.Length == 0)
             {
-                _marks.Add(_replaced);
-                _replaced = null;
+                _editIndex = -1;
+                _toolbar.FocusPhrase();
+                return;
             }
 
+            if (text.Length > 16)
+            {
+                text = text.Substring(0, 16);
+            }
+
+            var mark = new Mark();
+            mark.Kind = MarkKind.Text;
+            mark.Color = InkNow();
+            mark.Thickness = Markup.Thickness;
+            mark.Start = imagePoint;
+            mark.End = imagePoint;
+            mark.Text = text;
+            mark.FontPx = Markup.FontPx;
+            mark.WrapWidth = 0;
+            _marks.Add(mark);
+            _editIndex = _marks.Count - 1;
             Invalidate();
         }
 
-        void ApplyEditorInk(Color color)
+        void PlacePin(Point imagePoint)
         {
-            if (_editor == null)
-            {
-                return;
-            }
-
-            _editor.ForeColor = color;
-            if (_textFrame != null)
-            {
-                _textFrame.BackColor = color;
-            }
-
-            int sum = color.R + color.G + color.B;
-            _editor.BackColor = sum > 600 ? Color.FromArgb(32, 32, 32) : Color.White;
+            var mark = new Mark();
+            mark.Kind = MarkKind.Pin;
+            mark.Color = InkNow();
+            mark.Thickness = Markup.Thickness;
+            mark.Start = imagePoint;
+            mark.End = imagePoint;
+            _marks.Add(mark);
+            Invalidate();
         }
 
-        void EnsureEditor()
+        void SyncEditedText()
         {
-            if (_editor != null)
+            _ink = _toolbar.Ink;
+            if (_styleLock || _editIndex < 0 || _editIndex >= _marks.Count)
             {
                 return;
             }
 
-            _textFrame = new Panel();
-            _textFrame.BackColor = _ink;
-            _textFrame.Padding = new Padding(2);
-            _textFrame.Visible = false;
-            _textFrame.Cursor = Cursors.IBeam;
-            _editor = new TextBox();
-            _editor.BorderStyle = BorderStyle.None;
-            _editor.Multiline = true;
-            _editor.AcceptsReturn = true;
-            _editor.WordWrap = true;
-            _editor.Dock = DockStyle.Fill;
-            _editor.Font = new Font("Microsoft YaHei UI", Markup.FontPx, FontStyle.Regular, GraphicsUnit.Pixel);
-            _editor.BackColor = Color.White;
-            _editor.ForeColor = _ink;
-            _editor.TextChanged += (s, e) => GrowEditor();
-            _textFrame.Controls.Add(_editor);
-            Controls.Add(_textFrame);
+            Mark mark = _marks[_editIndex];
+            if (mark.Kind != MarkKind.Text)
+            {
+                return;
+            }
+
+            string text = (_toolbar.Phrase ?? "").Trim();
+            if (text.Length == 0)
+            {
+                _marks.RemoveAt(_editIndex);
+                _editIndex = -1;
+                Invalidate();
+                return;
+            }
+
+            if (text.Length > 16)
+            {
+                text = text.Substring(0, 16);
+            }
+
+            mark.Text = text;
+            mark.Color = InkNow();
+            Invalidate();
         }
 
-        void GrowEditor()
+        Color InkNow()
         {
-            if (_editor == null || _textFrame == null)
-            {
-                return;
-            }
+            int alpha = _toolbar.InkOpacity;
+            if (alpha < 40) alpha = 40;
+            if (alpha > 255) alpha = 255;
+            return Color.FromArgb(alpha, _ink.R, _ink.G, _ink.B);
+        }
 
-            string text = _editor.Text;
-            if (string.IsNullOrEmpty(text))
-            {
-                text = "字";
-            }
+        static MarkKind KindFor(AnnotateTool tool)
+        {
+            if (tool == AnnotateTool.Ellipse) return MarkKind.Ellipse;
+            if (tool == AnnotateTool.Arrow) return MarkKind.Arrow;
+            if (tool == AnnotateTool.Pen) return MarkKind.Pen;
+            if (tool == AnnotateTool.Doodle) return MarkKind.Doodle;
+            return MarkKind.Rect;
+        }
 
-            int maxWidth = Math.Max(80, Math.Min(480, ClientSize.Width - 8));
-            Size single = TextRenderer.MeasureText(text + " ", _editor.Font, new Size(4000, 200), TextFormatFlags.SingleLine | TextFormatFlags.NoPadding | TextFormatFlags.NoPrefix);
-            int width = Math.Min(maxWidth, Math.Max(48, single.Width + 12));
-            Size block = TextRenderer.MeasureText(text + " ", _editor.Font, new Size(Math.Max(8, width - 8), 2000), TextFormatFlags.WordBreak | TextFormatFlags.NoPadding | TextFormatFlags.NoPrefix | TextFormatFlags.TextBoxControl);
-            _textFrame.Size = new Size(width, Math.Max(Markup.FontPx + 12, block.Height + 12));
-            int x = _textFrame.Left;
-            int y = _textFrame.Top;
-            if (x + _textFrame.Width > ClientSize.Width - 2)
-            {
-                x = Math.Max(2, ClientSize.Width - _textFrame.Width - 2);
-            }
-
-            if (y + _textFrame.Height > ClientSize.Height - 2)
-            {
-                y = Math.Max(2, ClientSize.Height - _textFrame.Height - 2);
-            }
-
-            if (x < 2) x = 2;
-            if (y < 2) y = 2;
-            _textFrame.Location = new Point(x, y);
+        static int ThickFor(AnnotateTool tool)
+        {
+            if (tool == AnnotateTool.Doodle) return 16;
+            if (tool == AnnotateTool.Pen) return 3;
+            return Markup.Thickness;
         }
 
         int HitText(Point point)
@@ -1388,6 +1368,11 @@ namespace Jietu
 
         static bool KeepDraft(Mark mark)
         {
+            if (mark.Kind == MarkKind.Pen || mark.Kind == MarkKind.Doodle)
+            {
+                return mark.Points != null && mark.Points.Count >= 2;
+            }
+
             int dx = mark.End.X - mark.Start.X;
             int dy = mark.End.Y - mark.Start.Y;
             if (mark.Kind == MarkKind.Arrow)

@@ -1,29 +1,86 @@
 using System;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Windows.Forms;
 
 namespace Jietu
 {
+    enum ToolGlyph
+    {
+        Rect,
+        Ellipse,
+        Arrow,
+        Pen,
+        Doodle,
+        Text,
+        Pin,
+        Undo,
+        Ocr,
+        Copy,
+        Save,
+        Down,
+        Right,
+        Close
+    }
+
     sealed class ToolbarForm : Form
     {
-        readonly Button[] _swatches;
+        readonly IconButton[] _tools;
+        readonly SwatchDot[] _swatches;
+        readonly Panel _options;
+        readonly Panel _phraseHost;
+        readonly TextBox _phrase;
+        readonly Label _hint;
+        readonly OpacityBar _slider;
         Color _ink;
+        int _opacity = 255;
 
-        public Button RectButton;
-        public Button ArrowButton;
-        public Button TextButton;
-        public Button OcrButton;
-        public Button UndoButton;
-        public Button CopyButton;
-        public Button SaveButton;
-        public Button VerticalButton;
-        public Button HorizontalButton;
-        public Button DismissButton;
+        public IconButton RectButton;
+        public IconButton EllipseButton;
+        public IconButton ArrowButton;
+        public IconButton PenButton;
+        public IconButton DoodleButton;
+        public IconButton TextButton;
+        public IconButton PinButton;
+        public IconButton UndoButton;
+        public IconButton OcrButton;
+        public IconButton CopyButton;
+        public IconButton SaveButton;
+        public IconButton VerticalButton;
+        public IconButton HorizontalButton;
+        public IconButton DismissButton;
         public event EventHandler InkChanged;
+        public event EventHandler PhraseChanged;
 
         public Color Ink
         {
             get { return _ink; }
+        }
+
+        public int InkOpacity
+        {
+            get { return _opacity; }
+        }
+
+        [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+        public string Phrase
+        {
+            get { return _phrase.Text ?? ""; }
+            set
+            {
+                _phrase.Text = value ?? "";
+                RefreshHint();
+            }
+        }
+
+        public int PhraseMaxLength
+        {
+            get { return _phrase.MaxLength; }
+        }
+
+        public bool PhraseFocused
+        {
+            get { return _phrase.ContainsFocus || _hint.ContainsFocus; }
         }
 
         public ToolbarForm()
@@ -35,44 +92,121 @@ namespace Jietu
             AutoSize = true;
             AutoSizeMode = AutoSizeMode.GrowAndShrink;
             BackColor = Color.White;
-            Padding = new Padding(6, 6, 6, 6);
+            Padding = new Padding(4, 4, 4, 4);
             KeyPreview = true;
 
-            RectButton = Tool("矩形");
-            ArrowButton = Tool("箭头");
-            TextButton = Tool("文字");
-            OcrButton = Tool("识别文字");
-            UndoButton = Tool("撤销");
-            CopyButton = Theme.Button("复制", true);
-            SaveButton = Theme.Button("保存", false);
-            VerticalButton = Theme.Button("纵向长图", false);
-            HorizontalButton = Theme.Button("横向长图", false);
-            DismissButton = Theme.Button("取消", false);
+            RectButton = MakeIcon(ToolGlyph.Rect, "矩形");
+            EllipseButton = MakeIcon(ToolGlyph.Ellipse, "圆圈");
+            ArrowButton = MakeIcon(ToolGlyph.Arrow, "箭头");
+            PenButton = MakeIcon(ToolGlyph.Pen, "画笔");
+            DoodleButton = MakeIcon(ToolGlyph.Doodle, "涂鸦");
+            TextButton = MakeIcon(ToolGlyph.Text, "文字");
+            PinButton = MakeIcon(ToolGlyph.Pin, "钉");
+            UndoButton = MakeIcon(ToolGlyph.Undo, "撤回");
+            OcrButton = MakeIcon(ToolGlyph.Ocr, "识别文字");
+            CopyButton = MakeIcon(ToolGlyph.Copy, "复制");
+            SaveButton = MakeIcon(ToolGlyph.Save, "保存");
+            VerticalButton = MakeIcon(ToolGlyph.Down, "纵向长图");
+            HorizontalButton = MakeIcon(ToolGlyph.Right, "横向长图");
+            DismissButton = MakeIcon(ToolGlyph.Close, "取消");
+            CopyButton.Accent = true;
 
             var tools = Row();
             tools.Controls.Add(RectButton);
+            tools.Controls.Add(EllipseButton);
             tools.Controls.Add(ArrowButton);
+            tools.Controls.Add(PenButton);
+            tools.Controls.Add(DoodleButton);
             tools.Controls.Add(TextButton);
-            tools.Controls.Add(OcrButton);
+            tools.Controls.Add(PinButton);
             tools.Controls.Add(UndoButton);
-            tools.Controls.Add(Sep());
+            tools.Controls.Add(Sep(18));
+            tools.Controls.Add(OcrButton);
+            tools.Controls.Add(CopyButton);
+            tools.Controls.Add(SaveButton);
+            tools.Controls.Add(VerticalButton);
+            tools.Controls.Add(HorizontalButton);
+            tools.Controls.Add(DismissButton);
 
-            _swatches = new Button[Markup.Palette.Length];
+            _phraseHost = new Panel();
+            _phraseHost.Size = new Size(176, 28);
+            _phraseHost.Margin = new Padding(2, 4, 4, 2);
+            _phraseHost.BackColor = Color.White;
+            _phraseHost.Paint += (s, e) =>
+            {
+                using (var pen = new Pen(Theme.Line))
+                {
+                    e.Graphics.DrawRectangle(pen, 0, 0, _phraseHost.Width - 1, _phraseHost.Height - 1);
+                }
+            };
+
+            _phrase = new TextBox();
+            _phrase.BorderStyle = BorderStyle.None;
+            _phrase.Font = Theme.UiFont();
+            _phrase.Location = new Point(8, 6);
+            _phrase.Size = new Size(160, 18);
+            _phrase.MaxLength = 16;
+            _phrase.TextChanged += (s, e) =>
+            {
+                RefreshHint();
+                if (PhraseChanged != null)
+                {
+                    PhraseChanged(this, EventArgs.Empty);
+                }
+            };
+            _phrase.GotFocus += (s, e) => RefreshHint();
+            _phrase.LostFocus += (s, e) => RefreshHint();
+
+            _hint = new Label();
+            _hint.Text = "最多输入16个字符";
+            _hint.ForeColor = Theme.SubText;
+            _hint.BackColor = Color.White;
+            _hint.Font = Theme.UiFont();
+            _hint.AutoSize = false;
+            _hint.Location = new Point(6, 4);
+            _hint.Size = new Size(162, 20);
+            _hint.TextAlign = ContentAlignment.MiddleLeft;
+            _hint.Cursor = Cursors.IBeam;
+            _hint.Click += (s, e) => _phrase.Focus();
+            _phraseHost.Controls.Add(_phrase);
+            _phraseHost.Controls.Add(_hint);
+            _hint.BringToFront();
+
+            var opacityLabel = new Label();
+            opacityLabel.Text = "透明度";
+            opacityLabel.AutoSize = true;
+            opacityLabel.ForeColor = Theme.SubText;
+            opacityLabel.Font = Theme.UiFont();
+            opacityLabel.Margin = new Padding(6, 8, 2, 0);
+
+            _slider = new OpacityBar();
+            _slider.Value = 255;
+            _slider.Margin = new Padding(2, 4, 4, 0);
+            _slider.ValueChanged += (s, e) =>
+            {
+                _opacity = _slider.Value;
+                RaiseInk();
+            };
+
+            _options = Row();
+            _options.Controls.Add(_phraseHost);
+            _options.Controls.Add(Sep(16));
+            _options.Controls.Add(opacityLabel);
+            _options.Controls.Add(_slider);
+            _options.Controls.Add(Sep(16));
+            _swatches = new SwatchDot[Markup.Palette.Length];
             for (int i = 0; i < Markup.Palette.Length; i++)
             {
-                _swatches[i] = Swatch(Markup.Palette[i]);
-                tools.Controls.Add(_swatches[i]);
+                _swatches[i] = new SwatchDot(Markup.Palette[i]);
+                int index = i;
+                _swatches[i].Click += (s, e) => Pick(_swatches[index]);
+                _options.Controls.Add(_swatches[i]);
             }
 
             _ink = Markup.Red;
+            _opacity = 255;
             PaintSwatches(_swatches[0]);
-
-            var actions = Row();
-            actions.Controls.Add(CopyButton);
-            actions.Controls.Add(SaveButton);
-            actions.Controls.Add(VerticalButton);
-            actions.Controls.Add(HorizontalButton);
-            actions.Controls.Add(DismissButton);
+            _options.Visible = false;
 
             var stack = new FlowLayoutPanel();
             stack.AutoSize = true;
@@ -83,28 +217,136 @@ namespace Jietu
             stack.Margin = new Padding(0);
             stack.Padding = new Padding(0);
             stack.Controls.Add(tools);
-            stack.Controls.Add(actions);
+            stack.Controls.Add(_options);
             Controls.Add(stack);
 
+            _tools = new IconButton[]
+            {
+                RectButton, EllipseButton, ArrowButton, PenButton, DoodleButton, TextButton, PinButton
+            };
+
             var tip = new ToolTip();
-            tip.SetToolTip(RectButton, "拖拽画方框，默认红色");
-            tip.SetToolTip(ArrowButton, "拖拽画箭头");
-            tip.SetToolTip(TextButton, "点击后输入文字，Enter 完成");
-            tip.SetToolTip(OcrButton, "识别选区里的文字并复制");
-            tip.SetToolTip(UndoButton, "撤销上一笔（Ctrl+Z）");
-            tip.SetToolTip(CopyButton, "复制当前选区（Enter）");
-            tip.SetToolTip(SaveButton, "保存当前选区（Ctrl+S）");
-            tip.SetToolTip(VerticalButton, "向下滚动并拼接（↓）");
-            tip.SetToolTip(HorizontalButton, "向右滚动并拼接（→）");
-            tip.SetToolTip(DismissButton, "取消（Esc）");
+            tip.InitialDelay = 280;
+            tip.ReshowDelay = 80;
+            tip.AutoPopDelay = 4000;
+            tip.ShowAlways = true;
+            Tip(tip, RectButton, "矩形");
+            Tip(tip, EllipseButton, "圆圈");
+            Tip(tip, ArrowButton, "箭头");
+            Tip(tip, PenButton, "画笔");
+            Tip(tip, DoodleButton, "涂鸦");
+            Tip(tip, TextButton, "文字");
+            Tip(tip, PinButton, "钉");
+            Tip(tip, UndoButton, "撤回");
+            Tip(tip, OcrButton, "识别文字");
+            Tip(tip, CopyButton, "复制");
+            Tip(tip, SaveButton, "保存");
+            Tip(tip, VerticalButton, "纵向长图");
+            Tip(tip, HorizontalButton, "横向长图");
+            Tip(tip, DismissButton, "取消");
             SetActive(AnnotateTool.None);
+        }
+
+        public void FocusPhrase()
+        {
+            if (_phraseHost.Visible)
+            {
+                _phrase.Focus();
+            }
+        }
+
+        public void LoadPhrase(string text, Color color)
+        {
+            _phrase.Text = text ?? "";
+            if (_phrase.TextLength > _phrase.MaxLength)
+            {
+                _phrase.Text = _phrase.Text.Substring(0, _phrase.MaxLength);
+            }
+
+            _ink = Color.FromArgb(255, color.R, color.G, color.B);
+            int alpha = color.A;
+            if (alpha < 40)
+            {
+                alpha = 255;
+            }
+
+            _opacity = alpha;
+            _slider.Value = alpha;
+            SwatchDot match = _swatches[0];
+            for (int i = 0; i < _swatches.Length; i++)
+            {
+                if (_swatches[i].GetInk().ToArgb() == _ink.ToArgb())
+                {
+                    match = _swatches[i];
+                    break;
+                }
+            }
+
+            PaintSwatches(match);
+            RefreshHint();
         }
 
         public void SetActive(AnnotateTool tool)
         {
-            PaintTool(RectButton, tool == AnnotateTool.Rect);
-            PaintTool(ArrowButton, tool == AnnotateTool.Arrow);
-            PaintTool(TextButton, tool == AnnotateTool.Text);
+            for (int i = 0; i < _tools.Length; i++)
+            {
+                _tools[i].Active = false;
+            }
+
+            IconButton active = null;
+            if (tool == AnnotateTool.Rect) active = RectButton;
+            else if (tool == AnnotateTool.Ellipse) active = EllipseButton;
+            else if (tool == AnnotateTool.Arrow) active = ArrowButton;
+            else if (tool == AnnotateTool.Pen) active = PenButton;
+            else if (tool == AnnotateTool.Doodle) active = DoodleButton;
+            else if (tool == AnnotateTool.Text) active = TextButton;
+            else if (tool == AnnotateTool.Pin) active = PinButton;
+            if (active != null)
+            {
+                active.Active = true;
+            }
+
+            bool drawing = active != null;
+            _options.Visible = drawing;
+            _phraseHost.Visible = tool == AnnotateTool.Text;
+            PerformLayout();
+        }
+
+        static void Tip(ToolTip tip, Control control, string text)
+        {
+            tip.SetToolTip(control, text);
+        }
+
+        void RefreshHint()
+        {
+            _hint.Visible = _phrase.TextLength == 0 && !_phrase.Focused;
+            if (_hint.Visible)
+            {
+                _hint.BringToFront();
+            }
+        }
+
+        void Pick(SwatchDot dot)
+        {
+            _ink = dot.GetInk();
+            PaintSwatches(dot);
+            RaiseInk();
+        }
+
+        void PaintSwatches(SwatchDot selected)
+        {
+            for (int i = 0; i < _swatches.Length; i++)
+            {
+                _swatches[i].Chosen = _swatches[i] == selected;
+            }
+        }
+
+        void RaiseInk()
+        {
+            if (InkChanged != null)
+            {
+                InkChanged(this, EventArgs.Empty);
+            }
         }
 
         static FlowLayoutPanel Row()
@@ -120,64 +362,20 @@ namespace Jietu
             return row;
         }
 
-        static Button Tool(string text)
+        static IconButton MakeIcon(ToolGlyph glyph, string name)
         {
-            Button button = Theme.Button(text, false);
-            button.Padding = new Padding(8, 4, 8, 4);
-            button.Margin = new Padding(3, 2, 3, 2);
+            var button = new IconButton(glyph);
+            button.AccessibleName = name;
             return button;
         }
 
-        static Panel Sep()
+        static Panel Sep(int height)
         {
             var line = new Panel();
-            line.Size = new Size(1, 22);
+            line.Size = new Size(1, height);
             line.Margin = new Padding(6, 8, 6, 0);
             line.BackColor = Theme.Line;
             return line;
-        }
-
-        Button Swatch(Color color)
-        {
-            var button = new Button();
-            button.Size = new Size(18, 18);
-            button.Margin = new Padding(3, 8, 3, 0);
-            button.FlatStyle = FlatStyle.Flat;
-            button.UseVisualStyleBackColor = false;
-            button.BackColor = color;
-            button.ForeColor = color;
-            button.TabStop = false;
-            button.Cursor = Cursors.Hand;
-            button.FlatAppearance.BorderSize = 2;
-            button.FlatAppearance.BorderColor = Theme.Line;
-            button.Click += (s, e) =>
-            {
-                _ink = color;
-                PaintSwatches(button);
-                if (InkChanged != null)
-                {
-                    InkChanged(this, EventArgs.Empty);
-                }
-            };
-            return button;
-        }
-
-        void PaintSwatches(Button selected)
-        {
-            for (int i = 0; i < _swatches.Length; i++)
-            {
-                bool on = _swatches[i] == selected;
-                _swatches[i].FlatAppearance.BorderColor = on ? Color.FromArgb(32, 32, 32) : Theme.Line;
-            }
-        }
-
-        static void PaintTool(Button button, bool on)
-        {
-            button.BackColor = on ? Color.FromArgb(255, 236, 232) : Color.White;
-            button.ForeColor = on ? Markup.Red : Theme.Text;
-            button.FlatAppearance.BorderColor = on ? Markup.Red : Theme.Line;
-            button.FlatAppearance.MouseOverBackColor = on ? Color.FromArgb(255, 220, 214) : Color.FromArgb(245, 247, 250);
-            button.FlatAppearance.MouseDownBackColor = on ? Color.FromArgb(255, 200, 194) : Color.FromArgb(232, 236, 242);
         }
 
         protected override bool ShowWithoutActivation
@@ -202,6 +400,393 @@ namespace Jietu
             using (var pen = new Pen(Theme.Line))
             {
                 e.Graphics.DrawRectangle(pen, 0, 0, Width - 1, Height - 1);
+            }
+        }
+    }
+
+    sealed class IconButton : Control
+    {
+        readonly ToolGlyph _glyph;
+        bool _hover;
+        bool _active;
+        bool _accent;
+
+        public IconButton(ToolGlyph glyph)
+        {
+            _glyph = glyph;
+            Size = new Size(32, 32);
+            Margin = new Padding(1, 1, 1, 1);
+            Cursor = Cursors.Hand;
+            SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
+            TabStop = false;
+        }
+
+        [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+        public bool Active
+        {
+            get { return _active; }
+            set
+            {
+                _active = value;
+                Invalidate();
+            }
+        }
+
+        [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+        public bool Accent
+        {
+            get { return _accent; }
+            set
+            {
+                _accent = value;
+                Invalidate();
+            }
+        }
+
+        protected override void OnMouseEnter(EventArgs e)
+        {
+            _hover = true;
+            Invalidate();
+            base.OnMouseEnter(e);
+        }
+
+        protected override void OnMouseLeave(EventArgs e)
+        {
+            _hover = false;
+            Invalidate();
+            base.OnMouseLeave(e);
+        }
+
+        protected override void OnMouseUp(MouseEventArgs e)
+        {
+            base.OnMouseUp(e);
+            if (e.Button == MouseButtons.Left && ClientRectangle.Contains(e.Location))
+            {
+                OnClick(EventArgs.Empty);
+            }
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            Graphics g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+            Color back = _active ? Color.FromArgb(232, 234, 237) : (_hover ? Color.FromArgb(245, 247, 250) : Color.White);
+            using (GraphicsPath path = Round(new Rectangle(1, 1, Width - 3, Height - 3), 6))
+            using (var brush = new SolidBrush(back))
+            {
+                g.FillPath(brush, path);
+            }
+
+            Color ink = _accent ? Theme.Accent : Theme.Text;
+            using (var pen = new Pen(ink, 1.6f))
+            using (var brush = new SolidBrush(ink))
+            {
+                pen.StartCap = LineCap.Round;
+                pen.EndCap = LineCap.Round;
+                pen.LineJoin = LineJoin.Round;
+                DrawGlyph(g, pen, brush, _glyph);
+            }
+        }
+
+        static void DrawGlyph(Graphics g, Pen pen, Brush brush, ToolGlyph glyph)
+        {
+            if (glyph == ToolGlyph.Rect)
+            {
+                g.DrawRectangle(pen, 8, 9, 15, 13);
+            }
+            else if (glyph == ToolGlyph.Ellipse)
+            {
+                g.DrawEllipse(pen, 8, 9, 15, 13);
+            }
+            else if (glyph == ToolGlyph.Arrow)
+            {
+                g.DrawLine(pen, 8, 22, 22, 9);
+                g.FillPolygon(brush, new PointF[]
+                {
+                    new PointF(23, 8),
+                    new PointF(15, 9),
+                    new PointF(20, 16)
+                });
+            }
+            else if (glyph == ToolGlyph.Pen)
+            {
+                g.DrawLine(pen, 9, 22, 20, 10);
+                g.DrawLine(pen, 18, 8, 23, 13);
+                g.DrawLine(pen, 18, 8, 20, 10);
+                g.DrawLine(pen, 23, 13, 21, 12);
+            }
+            else if (glyph == ToolGlyph.Doodle)
+            {
+                g.DrawCurve(pen, new PointF[]
+                {
+                    new PointF(7, 20),
+                    new PointF(12, 10),
+                    new PointF(16, 22),
+                    new PointF(24, 11)
+                }, 0.55f);
+            }
+            else if (glyph == ToolGlyph.Text)
+            {
+                g.DrawLine(pen, 9, 9, 23, 9);
+                g.DrawLine(pen, 16, 9, 16, 23);
+            }
+            else if (glyph == ToolGlyph.Pin)
+            {
+                g.FillEllipse(brush, 11, 5, 10, 10);
+                g.FillPolygon(brush, new PointF[]
+                {
+                    new PointF(16, 26),
+                    new PointF(12.2f, 14),
+                    new PointF(19.8f, 14)
+                });
+                using (var hole = new SolidBrush(Color.White))
+                {
+                    g.FillEllipse(hole, 14, 7.5f, 4.2f, 4.2f);
+                }
+            }
+            else if (glyph == ToolGlyph.Undo)
+            {
+                g.DrawArc(pen, 10, 9, 13, 13, 200, 230);
+                g.FillPolygon(brush, new PointF[]
+                {
+                    new PointF(8, 13),
+                    new PointF(14, 10),
+                    new PointF(13, 16)
+                });
+            }
+            else if (glyph == ToolGlyph.Ocr)
+            {
+                g.DrawRectangle(pen, 8, 8, 12, 15);
+                g.DrawLine(pen, 11, 12, 17, 12);
+                g.DrawLine(pen, 11, 16, 17, 16);
+                g.DrawEllipse(pen, 16, 16, 8, 8);
+            }
+            else if (glyph == ToolGlyph.Copy)
+            {
+                g.DrawLines(pen, new PointF[]
+                {
+                    new PointF(8, 16),
+                    new PointF(13, 21),
+                    new PointF(24, 10)
+                });
+            }
+            else if (glyph == ToolGlyph.Save)
+            {
+                g.DrawLine(pen, 16, 7, 16, 18);
+                g.DrawLine(pen, 11, 14, 16, 19);
+                g.DrawLine(pen, 21, 14, 16, 19);
+                g.DrawLine(pen, 8, 22, 24, 22);
+            }
+            else if (glyph == ToolGlyph.Down)
+            {
+                g.DrawLine(pen, 16, 7, 16, 20);
+                g.FillPolygon(brush, new PointF[]
+                {
+                    new PointF(16, 25),
+                    new PointF(10, 17),
+                    new PointF(22, 17)
+                });
+            }
+            else if (glyph == ToolGlyph.Right)
+            {
+                g.DrawLine(pen, 7, 16, 20, 16);
+                g.FillPolygon(brush, new PointF[]
+                {
+                    new PointF(25, 16),
+                    new PointF(17, 10),
+                    new PointF(17, 22)
+                });
+            }
+            else if (glyph == ToolGlyph.Close)
+            {
+                g.DrawLine(pen, 10, 10, 22, 22);
+                g.DrawLine(pen, 22, 10, 10, 22);
+            }
+        }
+
+        static GraphicsPath Round(Rectangle bounds, int radius)
+        {
+            int d = radius * 2;
+            var path = new GraphicsPath();
+            path.AddArc(bounds.X, bounds.Y, d, d, 180, 90);
+            path.AddArc(bounds.Right - d, bounds.Y, d, d, 270, 90);
+            path.AddArc(bounds.Right - d, bounds.Bottom - d, d, d, 0, 90);
+            path.AddArc(bounds.X, bounds.Bottom - d, d, d, 90, 90);
+            path.CloseFigure();
+            return path;
+        }
+    }
+
+    sealed class SwatchDot : Control
+    {
+        readonly Color _ink;
+        bool _chosen;
+
+        public SwatchDot(Color color)
+        {
+            _ink = color;
+            Size = new Size(20, 20);
+            Margin = new Padding(3, 6, 3, 0);
+            Cursor = Cursors.Hand;
+            SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
+            TabStop = false;
+        }
+
+        public Color GetInk()
+        {
+            return _ink;
+        }
+
+        [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+        public bool Chosen
+        {
+            get { return _chosen; }
+            set
+            {
+                _chosen = value;
+                Invalidate();
+            }
+        }
+
+        protected override void OnMouseUp(MouseEventArgs e)
+        {
+            base.OnMouseUp(e);
+            if (e.Button == MouseButtons.Left && ClientRectangle.Contains(e.Location))
+            {
+                OnClick(EventArgs.Empty);
+            }
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            Graphics g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            var dot = new Rectangle(1, 1, Width - 3, Height - 3);
+            using (var brush = new SolidBrush(_ink))
+            {
+                g.FillEllipse(brush, dot);
+            }
+
+            if (_ink.R > 235 && _ink.G > 235 && _ink.B > 235)
+            {
+                using (var pen = new Pen(Theme.Line))
+                {
+                    g.DrawEllipse(pen, dot);
+                }
+            }
+
+            if (!_chosen)
+            {
+                return;
+            }
+
+            Color mark = (_ink.R + _ink.G + _ink.B) > 500 ? Color.Black : Color.White;
+            using (var pen = new Pen(mark, 1.7f))
+            {
+                pen.StartCap = LineCap.Round;
+                pen.EndCap = LineCap.Round;
+                g.DrawLines(pen, new PointF[]
+                {
+                    new PointF(5f, 10f),
+                    new PointF(8.5f, 13.5f),
+                    new PointF(15f, 6.5f)
+                });
+            }
+        }
+    }
+
+    sealed class OpacityBar : Control
+    {
+        int _value = 255;
+
+        public event EventHandler ValueChanged;
+
+        public OpacityBar()
+        {
+            Size = new Size(112, 24);
+            Cursor = Cursors.Hand;
+            SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
+            TabStop = false;
+        }
+
+        [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+        public int Value
+        {
+            get { return _value; }
+            set
+            {
+                int next = value;
+                if (next < 40) next = 40;
+                if (next > 255) next = 255;
+                if (next == _value)
+                {
+                    return;
+                }
+
+                _value = next;
+                Invalidate();
+                if (ValueChanged != null)
+                {
+                    ValueChanged(this, EventArgs.Empty);
+                }
+            }
+        }
+
+        protected override void OnMouseDown(MouseEventArgs e)
+        {
+            base.OnMouseDown(e);
+            if (e.Button == MouseButtons.Left)
+            {
+                Capture = true;
+                ApplyX(e.X);
+            }
+        }
+
+        protected override void OnMouseMove(MouseEventArgs e)
+        {
+            base.OnMouseMove(e);
+            if (e.Button == MouseButtons.Left && Capture)
+            {
+                ApplyX(e.X);
+            }
+        }
+
+        void ApplyX(int x)
+        {
+            int left = 8;
+            int right = Width - 8;
+            float t = (x - left) / (float)Math.Max(1, right - left);
+            if (t < 0f) t = 0f;
+            if (t > 1f) t = 1f;
+            Value = 40 + (int)Math.Round(t * 215f);
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            Graphics g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            int y = Height / 2;
+            int left = 8;
+            int right = Width - 8;
+            float t = (_value - 40) / 215f;
+            int x = left + (int)Math.Round((right - left) * t);
+            using (var track = new Pen(Color.FromArgb(220, 223, 230), 3f))
+            using (var fill = new Pen(Theme.Accent, 3f))
+            {
+                track.StartCap = LineCap.Round;
+                track.EndCap = LineCap.Round;
+                fill.StartCap = LineCap.Round;
+                fill.EndCap = LineCap.Round;
+                g.DrawLine(track, left, y, right, y);
+                g.DrawLine(fill, left, y, x, y);
+            }
+
+            using (var brush = new SolidBrush(Color.White))
+            using (var pen = new Pen(Theme.Accent, 2f))
+            {
+                g.FillEllipse(brush, x - 6, y - 6, 12, 12);
+                g.DrawEllipse(pen, x - 6, y - 6, 12, 12);
             }
         }
     }

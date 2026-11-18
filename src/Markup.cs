@@ -12,15 +12,23 @@ namespace Jietu
     {
         None,
         Rect,
+        Ellipse,
         Arrow,
-        Text
+        Pen,
+        Doodle,
+        Text,
+        Pin
     }
 
     enum MarkKind
     {
         Rect,
+        Ellipse,
         Arrow,
-        Text
+        Pen,
+        Doodle,
+        Text,
+        Pin
     }
 
     sealed class Mark
@@ -33,6 +41,7 @@ namespace Jietu
         public string Text;
         public int FontPx;
         public int WrapWidth;
+        public List<Point> Points;
     }
 
     static class Markup
@@ -43,11 +52,12 @@ namespace Jietu
         public static readonly Color[] Palette = new Color[]
         {
             Red,
-            Color.FromArgb(255, 176, 0),
-            Color.FromArgb(52, 199, 89),
+            Color.FromArgb(255, 196, 0),
             Color.FromArgb(0, 122, 255),
-            Color.FromArgb(28, 28, 30),
-            Color.White
+            Color.FromArgb(52, 199, 89),
+            Color.White,
+            Color.FromArgb(142, 142, 147),
+            Color.FromArgb(28, 28, 30)
         };
 
         public static Bitmap Compose(Bitmap source, Rectangle crop, IList<Mark> marks)
@@ -115,9 +125,40 @@ namespace Jietu
                 return;
             }
 
+            if (mark.Kind == MarkKind.Ellipse)
+            {
+                float left = Math.Min(x, x2);
+                float top = Math.Min(y, y2);
+                float width = Math.Abs(x2 - x);
+                float height = Math.Abs(y2 - y);
+                if (width < 1f || height < 1f)
+                {
+                    return;
+                }
+
+                using (var pen = new Pen(mark.Color, thick))
+                {
+                    g.DrawEllipse(pen, left, top, width, height);
+                }
+
+                return;
+            }
+
             if (mark.Kind == MarkKind.Arrow)
             {
                 DrawArrow(g, mark.Color, thick, scale, x, y, x2, y2);
+                return;
+            }
+
+            if (mark.Kind == MarkKind.Pen || mark.Kind == MarkKind.Doodle)
+            {
+                DrawStroke(g, mark, scale, originX, originY, thick);
+                return;
+            }
+
+            if (mark.Kind == MarkKind.Pin)
+            {
+                DrawPin(g, mark.Color, x, y, scale);
                 return;
             }
 
@@ -133,17 +174,10 @@ namespace Jietu
             using (var font = new Font("Microsoft YaHei UI", size, FontStyle.Regular, GraphicsUnit.Pixel))
             using (var format = new StringFormat())
             using (var brush = new SolidBrush(mark.Color))
-            using (var shadow = new SolidBrush(Color.FromArgb(110, 0, 0, 0)))
             {
                 format.Alignment = StringAlignment.Near;
                 format.LineAlignment = StringAlignment.Near;
-                if (mark.WrapWidth <= 0)
-                {
-                    format.FormatFlags = StringFormatFlags.NoWrap;
-                }
-
-                float shift = Math.Max(1f, scale);
-                g.DrawString(mark.Text, font, shadow, new RectangleF(layout.X + shift, layout.Y + shift, layout.Width, layout.Height), format);
+                format.FormatFlags = StringFormatFlags.NoWrap;
                 g.DrawString(mark.Text, font, brush, layout, format);
             }
         }
@@ -199,6 +233,66 @@ namespace Jietu
                 pen.LineJoin = LineJoin.Round;
                 g.DrawLine(pen, x, y, x2 - ux * head * 0.72f, y2 - uy * head * 0.72f);
                 g.FillPolygon(brush, new PointF[] { tip, left, right });
+            }
+        }
+
+        static void DrawStroke(Graphics g, Mark mark, float scale, float originX, float originY, float thick)
+        {
+            if (mark.Points == null || mark.Points.Count == 0)
+            {
+                return;
+            }
+
+            if (mark.Points.Count == 1)
+            {
+                float px = (mark.Points[0].X + originX) * scale;
+                float py = (mark.Points[0].Y + originY) * scale;
+                using (var brush = new SolidBrush(mark.Color))
+                {
+                    g.FillEllipse(brush, px - thick / 2f, py - thick / 2f, thick, thick);
+                }
+
+                return;
+            }
+
+            var points = new PointF[mark.Points.Count];
+            for (int i = 0; i < points.Length; i++)
+            {
+                points[i] = new PointF((mark.Points[i].X + originX) * scale, (mark.Points[i].Y + originY) * scale);
+            }
+
+            using (var pen = new Pen(mark.Color, thick))
+            {
+                pen.StartCap = LineCap.Round;
+                pen.EndCap = LineCap.Round;
+                pen.LineJoin = LineJoin.Round;
+                g.DrawLines(pen, points);
+            }
+        }
+
+        static void DrawPin(Graphics g, Color color, float x, float y, float scale)
+        {
+            float head = 7f * scale;
+            float cx = x;
+            float cy = y - 12f * scale;
+            using (var brush = new SolidBrush(color))
+            {
+                g.FillEllipse(brush, cx - head, cy - head, head * 2f, head * 2f);
+                g.FillPolygon(brush, new PointF[]
+                {
+                    new PointF(x, y),
+                    new PointF(cx - head * 0.62f, cy + head * 0.15f),
+                    new PointF(cx + head * 0.62f, cy + head * 0.15f)
+                });
+            }
+
+            Color hole = (color.R + color.G + color.B) > 520
+                ? Color.FromArgb(color.A, 40, 40, 40)
+                : Color.FromArgb(color.A, 255, 255, 255);
+            float inner = head * 0.42f;
+            using (var brush = new SolidBrush(hole))
+            {
+                g.FillEllipse(brush, cx - inner, cy - inner, inner * 2f, inner * 2f);
             }
         }
     }

@@ -22,6 +22,7 @@ namespace Jietu
             failed += RunCase("settings remembered", TestSettingsRemembered);
             failed += RunCase("color text", TestColorText);
             failed += RunCase("markup", TestMarkup);
+            failed += RunCase("more marks", TestMoreMarks);
             failed += RunCase("toolbar tools", TestToolbarTools);
             failed += RunCase("ocr text", TestOcr);
             if (failed == 0)
@@ -405,12 +406,70 @@ namespace Jietu
             return null;
         }
 
+        static string TestMoreMarks()
+        {
+            using (var source = new Bitmap(140, 90, PixelFormat.Format24bppRgb))
+            {
+                source.SetResolution(96, 96);
+                using (Graphics g = Graphics.FromImage(source))
+                {
+                    g.Clear(Color.White);
+                }
+
+                var marks = new List<Mark>();
+                var ellipse = new Mark();
+                ellipse.Kind = MarkKind.Ellipse;
+                ellipse.Color = Markup.Red;
+                ellipse.Thickness = 3;
+                ellipse.Start = new Point(8, 8);
+                ellipse.End = new Point(52, 36);
+                marks.Add(ellipse);
+
+                var pen = new Mark();
+                pen.Kind = MarkKind.Pen;
+                pen.Color = Markup.Red;
+                pen.Thickness = 3;
+                pen.Points = new List<Point>();
+                pen.Points.Add(new Point(8, 50));
+                pen.Points.Add(new Point(48, 50));
+                pen.Points.Add(new Point(48, 70));
+                marks.Add(pen);
+
+                var pin = new Mark();
+                pin.Kind = MarkKind.Pin;
+                pin.Color = Markup.Red;
+                pin.Start = new Point(90, 48);
+                pin.End = pin.Start;
+                marks.Add(pin);
+
+                using (Bitmap baked = Markup.Compose(source, new Rectangle(0, 0, source.Width, source.Height), marks))
+                {
+                    if (!AnyPixel(baked, new Rectangle(8, 6, 46, 10), IsRed))
+                    {
+                        return "ellipse did not draw";
+                    }
+
+                    if (!AnyPixel(baked, new Rectangle(12, 46, 30, 10), IsRed))
+                    {
+                        return "pen did not draw";
+                    }
+
+                    if (!AnyPixel(baked, new Rectangle(78, 24, 28, 28), IsRed))
+                    {
+                        return "pin did not draw";
+                    }
+                }
+            }
+
+            return null;
+        }
+
         static string TestToolbarTools()
         {
             using (var bar = new ToolbarForm())
             {
                 bar.CreateControl();
-                if (bar.RectButton == null || bar.ArrowButton == null || bar.TextButton == null || bar.OcrButton == null || bar.UndoButton == null)
+                if (bar.RectButton == null || bar.EllipseButton == null || bar.ArrowButton == null || bar.PenButton == null || bar.DoodleButton == null || bar.TextButton == null || bar.PinButton == null || bar.UndoButton == null)
                 {
                     return "missing tool button";
                 }
@@ -420,10 +479,22 @@ namespace Jietu
                     return "default ink " + ColorText.Hex(bar.Ink);
                 }
 
-                Size size = bar.PreferredSize;
-                if (size.Width < 280 || size.Width > 920 || size.Height < 68 || size.Height > 180)
+                if (bar.PhraseMaxLength != 16)
                 {
-                    return "toolbar " + size.Width + "x" + size.Height;
+                    return "phrase limit " + bar.PhraseMaxLength;
+                }
+
+                Size idle = bar.PreferredSize;
+                bar.SetActive(AnnotateTool.Text);
+                Size opened = bar.PreferredSize;
+                if (idle.Width < 360 || idle.Width > 980 || idle.Height < 32 || idle.Height > 64)
+                {
+                    return "toolbar " + idle.Width + "x" + idle.Height;
+                }
+
+                if (opened.Height <= idle.Height || opened.Height > 140)
+                {
+                    return "text options " + opened.Width + "x" + opened.Height;
                 }
             }
 
