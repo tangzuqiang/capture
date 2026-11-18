@@ -496,6 +496,20 @@ namespace Jietu
                 {
                     return "text options " + opened.Width + "x" + opened.Height;
                 }
+
+                int clicks = 0;
+                bar.RectButton.Click += (s, e) => clicks++;
+                if (!bar.RectButton.IsHandleCreated)
+                {
+                    bar.RectButton.CreateControl();
+                }
+
+                ClickOnce(bar.RectButton);
+                ClickOnce(bar.RectButton);
+                if (clicks != 2)
+                {
+                    return "tool click " + clicks;
+                }
             }
 
             return null;
@@ -531,6 +545,15 @@ namespace Jietu
             }
 
             return null;
+        }
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+
+        static void ClickOnce(Control control)
+        {
+            SendMessage(control.Handle, 0x0201, new IntPtr(1), IntPtr.Zero);
+            SendMessage(control.Handle, 0x0202, IntPtr.Zero, IntPtr.Zero);
         }
 
         static bool AnyPixel(Bitmap bitmap, Rectangle area, Func<Color, bool> test)

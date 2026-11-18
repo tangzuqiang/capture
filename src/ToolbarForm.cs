@@ -410,6 +410,7 @@ namespace Jietu
         bool _hover;
         bool _active;
         bool _accent;
+        bool _clickSent;
 
         public IconButton(ToolGlyph glyph)
         {
@@ -443,6 +444,12 @@ namespace Jietu
             }
         }
 
+        protected override void OnMouseDown(MouseEventArgs e)
+        {
+            _clickSent = false;
+            base.OnMouseDown(e);
+        }
+
         protected override void OnMouseEnter(EventArgs e)
         {
             _hover = true;
@@ -460,10 +467,21 @@ namespace Jietu
         protected override void OnMouseUp(MouseEventArgs e)
         {
             base.OnMouseUp(e);
-            if (e.Button == MouseButtons.Left && ClientRectangle.Contains(e.Location))
+            if (!_clickSent && e.Button == MouseButtons.Left && ClientRectangle.Contains(e.Location))
             {
                 OnClick(EventArgs.Empty);
             }
+        }
+
+        protected override void OnClick(EventArgs e)
+        {
+            if (_clickSent)
+            {
+                return;
+            }
+
+            _clickSent = true;
+            base.OnClick(e);
         }
 
         protected override void OnPaint(PaintEventArgs e)
@@ -622,6 +640,7 @@ namespace Jietu
     {
         readonly Color _ink;
         bool _chosen;
+        bool _clickSent;
 
         public SwatchDot(Color color)
         {
@@ -649,13 +668,30 @@ namespace Jietu
             }
         }
 
+        protected override void OnMouseDown(MouseEventArgs e)
+        {
+            _clickSent = false;
+            base.OnMouseDown(e);
+        }
+
         protected override void OnMouseUp(MouseEventArgs e)
         {
             base.OnMouseUp(e);
-            if (e.Button == MouseButtons.Left && ClientRectangle.Contains(e.Location))
+            if (!_clickSent && e.Button == MouseButtons.Left && ClientRectangle.Contains(e.Location))
             {
                 OnClick(EventArgs.Empty);
             }
+        }
+
+        protected override void OnClick(EventArgs e)
+        {
+            if (_clickSent)
+            {
+                return;
+            }
+
+            _clickSent = true;
+            base.OnClick(e);
         }
 
         protected override void OnPaint(PaintEventArgs e)
