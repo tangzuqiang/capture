@@ -42,6 +42,10 @@ if not exist bin mkdir bin
   src\ColorPanel.cs ^
   src\HintForm.cs ^
   src\ResultForm.cs ^
+  src\ClickMarker.cs ^
+  src\RecordSession.cs ^
+  src\AudioCapture.cs ^
+  src\ScreenRecorder.cs ^
   src\SelfTest.cs ^
   src\UiTest.cs
 

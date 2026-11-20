@@ -1,10 +1,12 @@
 using System;
-using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+#if NET
+using System.Runtime.InteropServices.WindowsRuntime;
 using Windows.Graphics.Capture;
 using Windows.Graphics.DirectX;
 using Windows.Graphics.DirectX.Direct3D11;
@@ -13,9 +15,46 @@ using Windows.Media.MediaProperties;
 using Windows.Media.Transcoding;
 using Windows.Storage.Streams;
 using WinRT;
+#endif
 
 namespace Jietu
 {
+#if !NET
+    sealed class ScreenRecorder
+    {
+        public string Path
+        {
+            get { return ""; }
+        }
+
+        public Size FrameSize
+        {
+            get { return Size.Empty; }
+        }
+
+        public string AudioMissing
+        {
+            get { return null; }
+        }
+
+        public static Rectangle Fit(Rectangle region)
+        {
+            region.Width &= ~1;
+            region.Height &= ~1;
+            return region;
+        }
+
+        public static Task<ScreenRecorder> StartAsync(Rectangle region, string path, bool systemAudio, bool microphone)
+        {
+            throw new NotSupportedException("录屏需要使用安装包里的程序。");
+        }
+
+        public Task StopAsync()
+        {
+            return Task.FromResult(0);
+        }
+    }
+#else
     sealed class ScreenRecorder
     {
         const int MaxFps = 60;
@@ -33,8 +72,120 @@ namespace Jietu
 
         sealed class Sample
         {
-            public IDirect3DSurface Surface;
-            public TimeSpan Time;
+            public Func<MediaStreamSample> Make;
+            public IDisposable Owned;
+
+            public void Dispose()
+            {
+                if (Owned != null)
+                {
+                    Owned.Dispose();
+                }
+            }
+        }
+
+        sealed class Feed
+        {
+            readonly object _gate = new object();
+            readonly Queue<Sample> _items = new Queue<Sample>();
+            MediaStreamSourceSampleRequest _waiting;
+            MediaStreamSourceSampleRequestDeferral _deferral;
+            bool _done;
+
+            public int Count
+            {
+                get
+                {
+                    lock (_gate)
+                    {
+                        return _items.Count;
+                    }
+                }
+            }
+
+            public void Push(Sample sample)
+            {
+                lock (_gate)
+                {
+                    if (_done)
+                    {
+                        sample.Dispose();
+                        return;
+                    }
+
+                    if (_waiting == null)
+                    {
+                        _items.Enqueue(sample);
+                        return;
+                    }
+
+                    MediaStreamSourceSampleRequestDeferral deferral = _deferral;
+                    Deliver(_waiting, sample);
+                    _waiting = null;
+                    _deferral = null;
+                    deferral.Complete();
+                }
+            }
+
+            public void Request(MediaStreamSourceSampleRequest request)
+            {
+                lock (_gate)
+                {
+                    if (_items.Count > 0)
+                    {
+                        Deliver(request, _items.Dequeue());
+                    }
+                    else if (_done)
+                    {
+                        request.Sample = null;
+                    }
+                    else
+                    {
+                        _waiting = request;
+                        _deferral = request.GetDeferral();
+                    }
+                }
+            }
+
+            public void Complete()
+            {
+                lock (_gate)
+                {
+                    _done = true;
+                    if (_waiting != null)
+                    {
+                        MediaStreamSourceSampleRequestDeferral deferral = _deferral;
+                        _waiting.Sample = null;
+                        _waiting = null;
+                        _deferral = null;
+                        deferral.Complete();
+                    }
+                }
+            }
+
+            public void Clear()
+            {
+                lock (_gate)
+                {
+                    _done = true;
+                    while (_items.Count > 0)
+                    {
+                        _items.Dequeue().Dispose();
+                    }
+                }
+            }
+
+            static void Deliver(MediaStreamSourceSampleRequest request, Sample sample)
+            {
+                try
+                {
+                    request.Sample = sample.Make();
+                }
+                finally
+                {
+                    sample.Dispose();
+                }
+            }
         }
 
         [StructLayout(LayoutKind.Sequential)]
@@ -107,8 +258,12 @@ namespace Jietu
         static extern bool GetMonitorInfo(IntPtr monitor, ref MonitorInfo info);
 
         readonly object _gate = new object();
-        readonly BlockingCollection<Sample> _queue = new BlockingCollection<Sample>(new ConcurrentQueue<Sample>());
+        readonly Feed _video = new Feed();
         readonly string _path;
+        Feed _audio;
+        AudioCapture _capture;
+        string _audioMissing;
+        TimeSpan _origin;
         Rectangle _region;
         Rectangle _monitor;
         int _width;
@@ -122,7 +277,6 @@ namespace Jietu
         GraphicsCaptureSession _session;
         FileStream _file;
         Task _encoding;
-        Sample _pending;
         TimeSpan _nextDue;
         bool _hasFrame;
         bool _stopped;
@@ -142,6 +296,16 @@ namespace Jietu
             get { return new Size(_width, _height); }
         }
 
+        public string AudioMissing
+        {
+            get { return _audioMissing; }
+        }
+
+        public static TimeSpan Now()
+        {
+            return TimeSpan.FromTicks((long)(Stopwatch.GetTimestamp() * ((double)TimeSpan.TicksPerSecond / Stopwatch.Frequency)));
+        }
+
         public static Rectangle Fit(Rectangle region)
         {
             Rectangle monitor = MonitorOf(region);
@@ -151,7 +315,7 @@ namespace Jietu
             return region;
         }
 
-        public static async Task<ScreenRecorder> StartAsync(Rectangle region, string path)
+        public static async Task<ScreenRecorder> StartAsync(Rectangle region, string path, bool systemAudio, bool microphone)
         {
             if (!GraphicsCaptureSession.IsSupported())
             {
@@ -161,7 +325,7 @@ namespace Jietu
             var recorder = new ScreenRecorder(path);
             try
             {
-                await recorder.Open(region);
+                await recorder.Open(region, systemAudio, microphone);
                 return recorder;
             }
             catch
@@ -179,7 +343,7 @@ namespace Jietu
             }
         }
 
-        async Task Open(Rectangle region)
+        async Task Open(Rectangle region, bool systemAudio, bool microphone)
         {
             _monitor = MonitorOf(region);
             _region = Fit(region);
@@ -197,7 +361,27 @@ namespace Jietu
             _session = _pool.CreateCaptureSession(_item);
             _session.IsCursorCaptureEnabled = true;
             HideCaptureBorder(_session);
+            if (systemAudio || microphone)
+            {
+                _capture = new AudioCapture(systemAudio, microphone);
+                _audioMissing = _capture.Missing;
+                if (_capture.HasSource)
+                {
+                    _audio = new Feed();
+                }
+                else
+                {
+                    _capture.Dispose();
+                    _capture = null;
+                }
+            }
+
+            _origin = Now();
             _session.StartCapture();
+            if (_capture != null)
+            {
+                _capture.Start(_origin, PushAudio);
+            }
 
             Directory.CreateDirectory(System.IO.Path.GetDirectoryName(_path));
             _file = new FileStream(_path, FileMode.Create, FileAccess.ReadWrite, FileShare.Read);
@@ -234,7 +418,14 @@ namespace Jietu
                 AppendTail();
             }
 
-            _queue.CompleteAdding();
+            TimeSpan end = Now();
+            _video.Complete();
+            if (_capture != null)
+            {
+                _capture.Stop(end);
+                _audio.Complete();
+            }
+
             try
             {
                 CloseCapture();
@@ -265,7 +456,17 @@ namespace Jietu
         MediaStreamSource CreateSource()
         {
             var input = VideoEncodingProperties.CreateUncompressed(MediaEncodingSubtypes.Bgra8, (uint)_width, (uint)_height);
-            var source = new MediaStreamSource(new VideoStreamDescriptor(input));
+            MediaStreamSource source;
+            if (_audio != null)
+            {
+                var pcm = AudioEncodingProperties.CreatePcm(AudioCapture.Rate, AudioCapture.Channels, 16);
+                source = new MediaStreamSource(new VideoStreamDescriptor(input), new AudioStreamDescriptor(pcm));
+            }
+            else
+            {
+                source = new MediaStreamSource(new VideoStreamDescriptor(input));
+            }
+
             source.BufferTime = TimeSpan.Zero;
             source.Starting += OnStarting;
             source.SampleRequested += OnSampleRequested;
@@ -292,7 +493,7 @@ namespace Jietu
             video.PixelAspectRatio.Numerator = 1;
             video.PixelAspectRatio.Denominator = 1;
             profile.Video = video;
-            profile.Audio = null;
+            profile.Audio = _audio != null ? AudioEncodingProperties.CreateAac(AudioCapture.Rate, AudioCapture.Channels, 192000) : null;
             return profile;
         }
 
@@ -306,39 +507,32 @@ namespace Jietu
 
         void OnStarting(MediaStreamSource sender, MediaStreamSourceStartingEventArgs args)
         {
-            if (_pending == null)
-            {
-                Sample first;
-                if (_queue.TryTake(out first, -1))
-                {
-                    _pending = first;
-                }
-            }
-
-            if (_pending != null)
-            {
-                args.Request.SetActualStartPosition(_pending.Time);
-            }
+            args.Request.SetActualStartPosition(_origin);
         }
 
         void OnSampleRequested(MediaStreamSource sender, MediaStreamSourceSampleRequestedEventArgs args)
         {
-            Sample next = _pending;
-            _pending = null;
-            if (next == null && !_queue.TryTake(out next, -1))
+            if (_audio != null && args.Request.StreamDescriptor is AudioStreamDescriptor)
             {
-                args.Request.Sample = null;
-                return;
+                _audio.Request(args.Request);
             }
+            else
+            {
+                _video.Request(args.Request);
+            }
+        }
 
-            try
+        void PushAudio(byte[] pcm, TimeSpan time, TimeSpan duration)
+        {
+            _audio.Push(new Sample
             {
-                args.Request.Sample = MediaStreamSample.CreateFromDirect3D11Surface(next.Surface, next.Time);
-            }
-            finally
-            {
-                next.Surface.Dispose();
-            }
+                Make = () =>
+                {
+                    MediaStreamSample sample = MediaStreamSample.CreateFromBuffer(pcm.AsBuffer(), time);
+                    sample.Duration = duration;
+                    return sample;
+                }
+            });
         }
 
         void OnFrameArrived(Direct3D11CaptureFramePool sender, object args)
@@ -363,7 +557,7 @@ namespace Jietu
                         return;
                     }
 
-                    if (_queue.Count >= QueueLimit)
+                    if (_video.Count >= QueueLimit)
                     {
                         return;
                     }
@@ -397,7 +591,7 @@ namespace Jietu
                 return;
             }
 
-            TimeSpan now = TimeSpan.FromTicks((long)(Stopwatch.GetTimestamp() * ((double)TimeSpan.TicksPerSecond / Stopwatch.Frequency)));
+            TimeSpan now = Now();
             if (now <= _nextDue - Period)
             {
                 return;
@@ -420,7 +614,11 @@ namespace Jietu
 
                 Marshal.AddRef(texture);
                 _lastTexture = texture;
-                _queue.Add(new Sample { Surface = surface, Time = time });
+                _video.Push(new Sample
+                {
+                    Make = () => MediaStreamSample.CreateFromDirect3D11Surface(surface, time),
+                    Owned = surface
+                });
             }
             finally
             {
@@ -643,18 +841,18 @@ namespace Jietu
             }
 
             CloseCapture();
+            if (_capture != null)
+            {
+                _capture.Dispose();
+                _capture = null;
+            }
+
             lock (_gate)
             {
-                Sample left;
-                while (_queue.TryTake(out left))
+                _video.Clear();
+                if (_audio != null)
                 {
-                    left.Surface.Dispose();
-                }
-
-                if (_pending != null)
-                {
-                    _pending.Surface.Dispose();
-                    _pending = null;
+                    _audio.Clear();
                 }
 
                 if (_file != null)
@@ -709,4 +907,5 @@ namespace Jietu
             }
         }
     }
+#endif
 }

@@ -19,6 +19,8 @@ namespace Jietu
         public static Keys GestureRgb = Keys.Control | Keys.Alt | Keys.C;
         public static Keys GestureWeb = Keys.Control | Keys.Alt | Keys.X;
         public static Keys GestureRecord = Keys.Control | Keys.Alt | Keys.R;
+        public static bool RecordSystemAudio = true;
+        public static bool RecordMicrophone = false;
         public static string SaveFolder = "";
         public static string LlmPreset = "";
         public static string LlmBaseUrl = "";
@@ -110,6 +112,15 @@ namespace Jietu
                     {
                         SaveFolder = value;
                     }
+                    else if (key == "recordSystemAudio" || key == "recordMicrophone")
+                    {
+                        bool on;
+                        if (bool.TryParse(value, out on))
+                        {
+                            if (key == "recordMicrophone") RecordMicrophone = on;
+                            else RecordSystemAudio = on;
+                        }
+                    }
                     else if (key == "llmPreset")
                     {
                         LlmPreset = value;
@@ -174,6 +185,8 @@ namespace Jietu
                     + "\r\ngestureRgb=" + GestureRgb
                     + "\r\ngestureWeb=" + GestureWeb
                     + "\r\ngestureRecord=" + GestureRecord
+                    + "\r\nrecordSystemAudio=" + RecordSystemAudio
+                    + "\r\nrecordMicrophone=" + RecordMicrophone
                     + "\r\nsaveFolder=" + SaveFolder
                     + "\r\nllmPreset=" + OneLine(LlmPreset)
                     + "\r\nllmBaseUrl=" + OneLine(LlmBaseUrl)

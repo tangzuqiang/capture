@@ -43,9 +43,13 @@ namespace Jietu
                 _bar.Place(_region);
                 _bar.Show();
                 await Task.Delay(150);
-                _recorder = await ScreenRecorder.StartAsync(_region, path);
+                _recorder = await ScreenRecorder.StartAsync(_region, path, AppSettings.RecordSystemAudio, AppSettings.RecordMicrophone);
                 _bar.Begin(_recorder.FrameSize);
                 Hook();
+                if (_recorder.AudioMissing != null)
+                {
+                    owner.Tip(_recorder.AudioMissing + "不可用，本次录屏不含该声音");
+                }
             }
             catch (Exception ex)
             {

@@ -130,6 +130,8 @@ namespace Jietu
                 Controls.Add(_hotkeyBoxes[i]);
             }
 
+            Controls.Add(AudioToggle("系统声音", 316, AppSettings.RecordSystemAudio, on => AppSettings.RecordSystemAudio = on));
+            Controls.Add(AudioToggle("麦克风", 416, AppSettings.RecordMicrophone, on => AppSettings.RecordMicrophone = on));
             Controls.Add(_hotkeyHint);
             Controls.Add(help);
             Controls.Add(paceLabel);
@@ -510,6 +512,24 @@ namespace Jietu
             label.ForeColor = Theme.SubText;
             label.BackColor = Theme.Page;
             return label;
+        }
+
+        static CheckBox AudioToggle(string text, int x, bool on, Action<bool> apply)
+        {
+            var box = new CheckBox();
+            box.Text = text;
+            box.AutoSize = true;
+            box.Checked = on;
+            box.ForeColor = Theme.SubText;
+            box.BackColor = Theme.Page;
+            box.Location = new Point(x, 273);
+            box.TabStop = false;
+            box.CheckedChanged += (s, e) =>
+            {
+                apply(box.Checked);
+                AppSettings.Save();
+            };
+            return box;
         }
 
         TextBox MakeHotkeyBox(int slot, int y)
