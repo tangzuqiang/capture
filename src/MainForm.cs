@@ -7,16 +7,17 @@ namespace Jietu
     sealed class MainForm : Form
     {
         readonly NotifyIcon _tray;
-        readonly TextBox[] _hotkeyBoxes = new TextBox[3];
-        readonly bool[] _hotkeyReady = new bool[3];
+        readonly TextBox[] _hotkeyBoxes = new TextBox[4];
+        readonly bool[] _hotkeyReady = new bool[4];
         readonly Label _hotkeyHint;
         readonly TextBox _savePath;
         int _captureSlot = -1;
         bool _exit;
         bool _tipped;
-        static readonly int[] HotkeyIds = { 1, 2, 3 };
-        static readonly string[] HotkeyNames = { "截图", "复制 RGB", "复制网页色" };
-        static readonly Rectangle HelpCard = new Rectangle(24, 292, 512, 180);
+        string _tipFile;
+        static readonly int[] HotkeyIds = { 1, 2, 3, 4 };
+        static readonly string[] HotkeyNames = { "截图", "复制 RGB", "复制网页色", "录屏" };
+        static readonly Rectangle HelpCard = new Rectangle(24, 326, 512, 200);
         const int HeaderHeight = 104;
 
         public MainForm()
@@ -26,7 +27,7 @@ namespace Jietu
             StartPosition = FormStartPosition.CenterScreen;
             FormBorderStyle = FormBorderStyle.FixedSingle;
             MaximizeBox = false;
-            ClientSize = new Size(560, 540);
+            ClientSize = new Size(560, 594);
             Theme.Apply(this);
             DoubleBuffered = true;
             Font = Theme.UiFont();
@@ -81,7 +82,8 @@ namespace Jietu
                 "2. 框选后可用图标标注、识别文字或用大模型翻译，悬停可看名称。\r\n" +
                 "3. 鼠标停在颜色上，按设置的快捷键复制 RGB 或 #色值。\r\n" +
                 "4. 纵向向下滚，横向向右滚，把多屏拼成一张图。\r\n" +
-                "5. 滚动过程中按 Esc 提前结束，到边缘会自动停下。\r\n\r\n" +
+                "5. 滚动过程中按 Esc 提前结束，到边缘会自动停下。\r\n" +
+                "6. 框选后点录屏图标开始录制，再按录屏快捷键或点停止结束。\r\n\r\n" +
                 "可以连着固定表头、底栏一起框。滚动时不动的部分只会留下一次。\r\n" +
                 "尽量不要把滚动条框进去。";
 
@@ -90,13 +92,13 @@ namespace Jietu
             paceLabel.AutoSize = true;
             paceLabel.ForeColor = Theme.SubText;
             paceLabel.BackColor = Theme.Page;
-            paceLabel.Location = new Point(28, 490);
+            paceLabel.Location = new Point(28, 544);
 
             var pace = new ComboBox();
             pace.DropDownStyle = ComboBoxStyle.DropDownList;
             Theme.Input(pace);
             pace.Font = Theme.UiFont();
-            pace.Location = new Point(104, 486);
+            pace.Location = new Point(104, 540);
             pace.Size = new Size(120, 28);
             pace.Items.AddRange(new object[] { "慢，更稳", "标准", "快" });
             if (AppSettings.Pace == ScrollPace.Slow) pace.SelectedIndex = 0;
@@ -112,7 +114,7 @@ namespace Jietu
 
             var modelButton = Theme.Button("翻译模型配置", true);
             modelButton.AutoSize = false;
-            modelButton.Location = new Point(392, 483);
+            modelButton.Location = new Point(392, 537);
             modelButton.Size = new Size(140, 34);
             modelButton.Click += (s, e) => ModelForm.Edit(this);
 
@@ -141,11 +143,14 @@ namespace Jietu
             var menu = new ContextMenuStrip();
             Theme.DarkMenu(menu);
             menu.Items.Add("开始截图", null, (s, e) => OverlayForm.Run(this));
+            ToolStripItem recordItem = menu.Items.Add("开始录屏", null, (s, e) => ToggleRecord());
             menu.Items.Add("显示主窗口", null, (s, e) => ShowMain());
             menu.Items.Add("翻译模型配置", null, (s, e) => ModelForm.Edit(Visible ? this : null));
             menu.Items.Add("退出", null, (s, e) => ExitApp());
+            menu.Opening += (s, e) => recordItem.Text = RecordSession.Active ? "停止录屏" : "开始录屏";
             _tray.ContextMenuStrip = menu;
             _tray.DoubleClick += (s, e) => OverlayForm.Run(this);
+            _tray.BalloonTipClicked += (s, e) => OpenTipFile();
         }
 
         protected override void OnHandleCreated(EventArgs e)
@@ -190,6 +195,10 @@ namespace Jietu
                 {
                     BeginInvoke(new Action(() => CopyCursorColor(true)));
                 }
+                else if (id == HotkeyIds[3])
+                {
+                    BeginInvoke(new Action(ToggleRecord));
+                }
             }
 
             base.WndProc(ref m);
@@ -226,7 +235,49 @@ namespace Jietu
         {
             if (_tray != null && text != null)
             {
+                _tipFile = null;
                 _tray.ShowBalloonTip(1600, "截长图", text, ToolTipIcon.Info);
+            }
+        }
+
+        public void TipFile(string text, string path)
+        {
+            if (_tray != null && text != null)
+            {
+                _tipFile = path;
+                _tray.ShowBalloonTip(4000, "截长图", text, ToolTipIcon.Info);
+            }
+        }
+
+        void OpenTipFile()
+        {
+            string path = _tipFile;
+            _tipFile = null;
+            if (string.IsNullOrEmpty(path) || !System.IO.File.Exists(path))
+            {
+                return;
+            }
+
+            try
+            {
+                System.Diagnostics.Process.Start("explorer.exe", "/select,\"" + path + "\"");
+            }
+            catch
+            {
+            }
+        }
+
+        void ToggleRecord()
+        {
+            if (RecordSession.Active)
+            {
+                RecordSession.Stop(this);
+                return;
+            }
+
+            if (!OverlayForm.TryStartRecord())
+            {
+                OverlayForm.Run(this);
             }
         }
 
@@ -491,6 +542,7 @@ namespace Jietu
         {
             if (slot == 1) return AppSettings.GestureRgb;
             if (slot == 2) return AppSettings.GestureWeb;
+            if (slot == 3) return AppSettings.GestureRecord;
             return AppSettings.Gesture;
         }
 
@@ -498,6 +550,7 @@ namespace Jietu
         {
             if (slot == 1) AppSettings.GestureRgb = gesture;
             else if (slot == 2) AppSettings.GestureWeb = gesture;
+            else if (slot == 3) AppSettings.GestureRecord = gesture;
             else AppSettings.Gesture = gesture;
         }
 
@@ -602,6 +655,12 @@ namespace Jietu
 
         void ExitApp()
         {
+            if (RecordSession.Active)
+            {
+                Tip("正在录屏，请先停止录屏再退出");
+                return;
+            }
+
             _exit = true;
             Close();
         }

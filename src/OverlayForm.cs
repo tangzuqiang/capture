@@ -50,6 +50,19 @@ namespace Jietu
         bool _styleLock;
         Form _ocrForm;
         public ScrollCapture.Outcome Outcome;
+        public Rectangle RecordRegion;
+
+        public static bool TryStartRecord()
+        {
+            OverlayForm form = _active;
+            if (form == null || form.IsDisposed || !form.Visible || !form._hasSel || form._busy)
+            {
+                return false;
+            }
+
+            form.StartRecord();
+            return true;
+        }
 
         public static bool TryGetCursorColor(out Color color)
         {
@@ -93,6 +106,7 @@ namespace Jietu
             _running = true;
             bool restore = owner != null && owner.Visible && !owner.IsDisposed;
             ScrollCapture.Outcome outcome = null;
+            Rectangle record = Rectangle.Empty;
             try
             {
                 if (restore)
@@ -107,6 +121,7 @@ namespace Jietu
                 {
                     overlay.ShowDialog();
                     outcome = overlay.Outcome;
+                    record = overlay.RecordRegion;
                 }
             }
             catch (Exception ex)
@@ -116,10 +131,16 @@ namespace Jietu
             finally
             {
                 _running = false;
-                if (restore && owner != null && !owner.IsDisposed)
+                if (restore && record.IsEmpty && owner != null && !owner.IsDisposed)
                 {
                     owner.Show();
                 }
+            }
+
+            if (!record.IsEmpty)
+            {
+                RecordSession.Start(owner, record);
+                return;
             }
 
             if (outcome != null && outcome.Ok && outcome.Image != null)
@@ -156,6 +177,7 @@ namespace Jietu
             _toolbar.SaveButton.Click += (s, e) => SaveStill();
             _toolbar.VerticalButton.Click += (s, e) => StartLong(true);
             _toolbar.HorizontalButton.Click += (s, e) => StartLong(false);
+            _toolbar.RecordButton.Click += (s, e) => StartRecord();
             _toolbar.DismissButton.Click += (s, e) => Cancel();
             _toolbar.RectButton.Click += (s, e) => SetTool(AnnotateTool.Rect);
             _toolbar.EllipseButton.Click += (s, e) => SetTool(AnnotateTool.Ellipse);
@@ -1019,6 +1041,18 @@ namespace Jietu
                 hint.Dispose();
                 Close();
             }
+        }
+
+        void StartRecord()
+        {
+            if (_busy || !_hasSel)
+            {
+                return;
+            }
+
+            RecordRegion = new Rectangle(_screenBounds.X + _sel.X, _screenBounds.Y + _sel.Y, _sel.Width, _sel.Height);
+            Outcome = null;
+            Close();
         }
 
         static void PlaceHint(HintForm hint, Rectangle region)

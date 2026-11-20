@@ -18,6 +18,7 @@ namespace Jietu
         public static Keys Gesture = Keys.Control | Keys.Alt | Keys.A;
         public static Keys GestureRgb = Keys.Control | Keys.Alt | Keys.C;
         public static Keys GestureWeb = Keys.Control | Keys.Alt | Keys.X;
+        public static Keys GestureRecord = Keys.Control | Keys.Alt | Keys.R;
         public static string SaveFolder = "";
         public static string LlmPreset = "";
         public static string LlmBaseUrl = "";
@@ -129,7 +130,7 @@ namespace Jietu
                     {
                         TranslateTarget = value.Length > 0 ? value : "auto";
                     }
-                    else if (key == "gesture" || key == "gestureRgb" || key == "gestureWeb")
+                    else if (key == "gesture" || key == "gestureRgb" || key == "gestureWeb" || key == "gestureRecord")
                     {
                         Keys gesture;
                         if (Enum.TryParse(value, out gesture) && IsValidGesture(gesture))
@@ -137,6 +138,7 @@ namespace Jietu
                             gesture = Normalize(gesture);
                             if (key == "gestureRgb") GestureRgb = gesture;
                             else if (key == "gestureWeb") GestureWeb = gesture;
+                            else if (key == "gestureRecord") GestureRecord = gesture;
                             else Gesture = gesture;
                         }
                     }
@@ -171,6 +173,7 @@ namespace Jietu
                     + "\r\ngesture=" + Gesture
                     + "\r\ngestureRgb=" + GestureRgb
                     + "\r\ngestureWeb=" + GestureWeb
+                    + "\r\ngestureRecord=" + GestureRecord
                     + "\r\nsaveFolder=" + SaveFolder
                     + "\r\nllmPreset=" + OneLine(LlmPreset)
                     + "\r\nllmBaseUrl=" + OneLine(LlmBaseUrl)
@@ -236,6 +239,16 @@ namespace Jietu
             }
 
             return Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
+        }
+
+        public static string VideoDirectory()
+        {
+            if (!string.IsNullOrEmpty(SaveFolder) && Directory.Exists(SaveFolder))
+            {
+                return SaveFolder;
+            }
+
+            return Environment.GetFolderPath(Environment.SpecialFolder.MyVideos);
         }
 
         public static bool IsValidGesture(Keys gesture)

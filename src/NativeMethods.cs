@@ -91,6 +91,108 @@ namespace Jietu
         [DllImport("user32.dll")]
         public static extern bool DestroyIcon(IntPtr hIcon);
 
+        public const int WH_MOUSE_LL = 14;
+        public const int WM_LBUTTONDOWN = 0x0201;
+        public const int WM_RBUTTONDOWN = 0x0204;
+        public const int WM_MBUTTONDOWN = 0x0207;
+        public const uint WDA_EXCLUDEFROMCAPTURE = 0x11;
+        public const int WS_EX_TRANSPARENT = 0x20;
+        public const int WS_EX_TOOLWINDOW = 0x80;
+        public const int WS_EX_TOPMOST = 0x8;
+        public const int WS_EX_LAYERED = 0x80000;
+        public const int WS_EX_NOACTIVATE = 0x08000000;
+
+        public delegate IntPtr HookProc(int code, IntPtr wParam, IntPtr lParam);
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct MouseHookInfo
+        {
+            public Point Point;
+            public uint MouseData;
+            public uint Flags;
+            public uint Time;
+            public UIntPtr ExtraInfo;
+        }
+
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
+        public struct BlendFunction
+        {
+            public byte Op;
+            public byte Flags;
+            public byte Alpha;
+            public byte Format;
+        }
+
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern IntPtr SetWindowsHookEx(int idHook, HookProc proc, IntPtr module, uint threadId);
+
+        [DllImport("user32.dll")]
+        public static extern bool UnhookWindowsHookEx(IntPtr hook);
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr CallNextHookEx(IntPtr hook, int code, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+        public static extern IntPtr GetModuleHandle(string name);
+
+        [DllImport("user32.dll")]
+        public static extern bool SetWindowDisplayAffinity(IntPtr hwnd, uint affinity);
+
+        [DllImport("user32.dll")]
+        public static extern bool UpdateLayeredWindow(IntPtr hwnd, IntPtr dstDc, ref Point dst, ref Size size, IntPtr srcDc, ref Point src, int key, ref BlendFunction blend, int flags);
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr GetDC(IntPtr hwnd);
+
+        [DllImport("user32.dll")]
+        public static extern int ReleaseDC(IntPtr hwnd, IntPtr dc);
+
+        [DllImport("gdi32.dll")]
+        public static extern IntPtr CreateCompatibleDC(IntPtr dc);
+
+        [DllImport("gdi32.dll")]
+        public static extern bool DeleteDC(IntPtr dc);
+
+        [DllImport("gdi32.dll")]
+        public static extern IntPtr SelectObject(IntPtr dc, IntPtr obj);
+
+        [DllImport("gdi32.dll")]
+        public static extern bool DeleteObject(IntPtr obj);
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr MonitorFromPoint(Point point, uint flags);
+
+        [DllImport("shcore.dll")]
+        public static extern int GetDpiForMonitor(IntPtr monitor, int type, out uint dpiX, out uint dpiY);
+
+        [DllImport("user32.dll")]
+        public static extern bool ReleaseCapture();
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr SendMessage(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam);
+
+        public static float ScaleAt(Point point)
+        {
+            uint dpiX, dpiY;
+            try
+            {
+                if (GetDpiForMonitor(MonitorFromPoint(point, 2), 0, out dpiX, out dpiY) == 0 && dpiX > 0)
+                {
+                    return dpiX / 96f;
+                }
+            }
+            catch (DllNotFoundException)
+            {
+            }
+
+            return 1f;
+        }
+
+        public static void ExcludeFromCapture(IntPtr hwnd)
+        {
+            SetWindowDisplayAffinity(hwnd, WDA_EXCLUDEFROMCAPTURE);
+        }
+
         [StructLayout(LayoutKind.Sequential)]
         struct DataBlob
         {

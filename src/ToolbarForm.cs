@@ -21,6 +21,7 @@ namespace Jietu
         Save,
         Down,
         Right,
+        Record,
         Close
     }
 
@@ -50,6 +51,7 @@ namespace Jietu
         public IconButton SaveButton;
         public IconButton VerticalButton;
         public IconButton HorizontalButton;
+        public IconButton RecordButton;
         public IconButton DismissButton;
         public event EventHandler InkChanged;
         public event EventHandler PhraseChanged;
@@ -112,6 +114,7 @@ namespace Jietu
             SaveButton = MakeIcon(ToolGlyph.Save, "保存");
             VerticalButton = MakeIcon(ToolGlyph.Down, "纵向长图");
             HorizontalButton = MakeIcon(ToolGlyph.Right, "横向长图");
+            RecordButton = MakeIcon(ToolGlyph.Record, "录屏");
             DismissButton = MakeIcon(ToolGlyph.Close, "取消");
             CopyButton.Accent = true;
 
@@ -131,6 +134,7 @@ namespace Jietu
             tools.Controls.Add(SaveButton);
             tools.Controls.Add(VerticalButton);
             tools.Controls.Add(HorizontalButton);
+            tools.Controls.Add(RecordButton);
             tools.Controls.Add(DismissButton);
 
             _phraseHost = new Panel();
@@ -272,6 +276,7 @@ namespace Jietu
             Tip(tip, SaveButton, "保存");
             Tip(tip, VerticalButton, "纵向长图");
             Tip(tip, HorizontalButton, "横向长图");
+            Tip(tip, RecordButton, "录屏");
             Tip(tip, DismissButton, "取消");
             SetActive(AnnotateTool.None);
         }
@@ -684,6 +689,11 @@ namespace Jietu
                     new PointF(17, 10),
                     new PointF(17, 22)
                 });
+            }
+            else if (glyph == ToolGlyph.Record)
+            {
+                g.DrawEllipse(pen, 8, 8, 16, 16);
+                g.FillEllipse(brush, 12, 12, 8, 8);
             }
             else if (glyph == ToolGlyph.Close)
             {
