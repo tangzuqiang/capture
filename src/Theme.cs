@@ -295,6 +295,8 @@ namespace Jietu
         bool _hover;
         bool _down;
 
+        public Action<Graphics, Rectangle, Color> Glyph;
+
         public GlowButton(bool primary)
         {
             _primary = primary;
@@ -393,6 +395,12 @@ namespace Jietu
             }
 
             Color text = !Enabled ? Theme.SubText : (_primary ? Color.White : Theme.Text);
+            if (Glyph != null)
+            {
+                Glyph(g, ClientRectangle, text);
+                return;
+            }
+
             TextRenderer.DrawText(g, Text, Font, ClientRectangle, text, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine);
         }
     }

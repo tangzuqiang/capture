@@ -1,5 +1,8 @@
 using System;
+using System.Diagnostics;
 using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.IO;
 using System.Windows.Forms;
 
 namespace Jietu
@@ -55,13 +58,24 @@ namespace Jietu
 
             _savePath = new TextBox();
             _savePath.Location = new Point(232, 125);
-            _savePath.Size = new Size(300, 26);
+            _savePath.Size = new Size(264, 26);
             _savePath.Font = Theme.UiFont();
             _savePath.ReadOnly = true;
             Theme.Input(_savePath);
             _savePath.BorderStyle = BorderStyle.FixedSingle;
             _savePath.TabStop = false;
             ShowSaveFolder();
+
+            var openFolder = new GlowButton(false);
+            openFolder.Location = new Point(502, 123);
+            openFolder.Size = new Size(30, 30);
+            openFolder.Cursor = Cursors.Hand;
+            openFolder.TabStop = false;
+            openFolder.Glyph = DrawFolder;
+            openFolder.Click += (s, e) => OpenSaveFolder();
+            var folderTip = new ToolTip();
+            Theme.DarkTips(folderTip);
+            folderTip.SetToolTip(openFolder, "打开目录");
 
             _hotkeyHint = new Label();
             _hotkeyHint.AutoSize = false;
@@ -83,7 +97,7 @@ namespace Jietu
                 "3. 鼠标停在颜色上，按设置的快捷键复制 RGB 或 #色值。\r\n" +
                 "4. 纵向向下滚，横向向右滚，把多屏拼成一张图。\r\n" +
                 "5. 滚动过程中按 Esc 提前结束，到边缘会自动停下。\r\n" +
-                "6. 框选后点录屏图标开始录制，再按录屏快捷键或点停止结束。\r\n\r\n" +
+                "6. 按录屏快捷键框选即开始录制，单击录全屏；再按一次快捷键结束。\r\n\r\n" +
                 "可以连着固定表头、底栏一起框。滚动时不动的部分只会留下一次。\r\n" +
                 "尽量不要把滚动条框进去。";
 
@@ -122,6 +136,7 @@ namespace Jietu
             Controls.Add(sub);
             Controls.Add(pickFolder);
             Controls.Add(_savePath);
+            Controls.Add(openFolder);
             for (int i = 0; i < _hotkeyBoxes.Length; i++)
             {
                 int y = 170 + i * 34;
@@ -151,7 +166,7 @@ namespace Jietu
             menu.Items.Add("退出", null, (s, e) => ExitApp());
             menu.Opening += (s, e) => recordItem.Text = RecordSession.Active ? "停止录屏" : "开始录屏";
             _tray.ContextMenuStrip = menu;
-            _tray.DoubleClick += (s, e) => OverlayForm.Run(this);
+            _tray.DoubleClick += (s, e) => ShowMain();
             _tray.BalloonTipClicked += (s, e) => OpenTipFile();
         }
 
@@ -187,7 +202,7 @@ namespace Jietu
                 int id = m.WParam.ToInt32();
                 if (id == HotkeyIds[0])
                 {
-                    BeginInvoke(new Action(() => OverlayForm.Run(this)));
+                    BeginInvoke(new Action(StartCapture));
                 }
                 else if (id == HotkeyIds[1])
                 {
@@ -269,6 +284,17 @@ namespace Jietu
             }
         }
 
+        void StartCapture()
+        {
+            if (RecordSession.Active)
+            {
+                RecordSession.Stop(this);
+                return;
+            }
+
+            OverlayForm.Run(this);
+        }
+
         void ToggleRecord()
         {
             if (RecordSession.Active)
@@ -279,7 +305,7 @@ namespace Jietu
 
             if (!OverlayForm.TryStartRecord())
             {
-                OverlayForm.Run(this);
+                OverlayForm.Run(this, true);
             }
         }
 
@@ -620,6 +646,44 @@ namespace Jietu
             if (_savePath.Text.Length > 0)
             {
                 _savePath.SelectionStart = _savePath.Text.Length;
+            }
+        }
+
+        void OpenSaveFolder()
+        {
+            string folder = _savePath.Text;
+            if (string.IsNullOrEmpty(folder))
+            {
+                return;
+            }
+
+            try
+            {
+                Directory.CreateDirectory(folder);
+                Process.Start("explorer.exe", "\"" + folder + "\"");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, "无法打开目录：" + ex.Message, "截长图", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
+        static void DrawFolder(Graphics g, Rectangle bounds, Color color)
+        {
+            float x = bounds.X + (bounds.Width - 16) / 2f;
+            float y = bounds.Y + (bounds.Height - 13) / 2f;
+            using (var path = new GraphicsPath())
+            using (var pen = new Pen(color, 1.5f))
+            {
+                pen.LineJoin = LineJoin.Round;
+                path.AddLine(x, y + 12, x, y + 1);
+                path.AddLine(x, y + 1, x + 5.5f, y + 1);
+                path.AddLine(x + 5.5f, y + 1, x + 7.5f, y + 3);
+                path.AddLine(x + 7.5f, y + 3, x + 16, y + 3);
+                path.AddLine(x + 16, y + 3, x + 16, y + 12);
+                path.CloseFigure();
+                g.DrawPath(pen, path);
+                g.DrawLine(pen, x, y + 5.5f, x + 16, y + 5.5f);
             }
         }
 

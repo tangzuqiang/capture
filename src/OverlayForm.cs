@@ -51,16 +51,26 @@ namespace Jietu
         Form _ocrForm;
         public ScrollCapture.Outcome Outcome;
         public Rectangle RecordRegion;
+        bool _recordMode;
 
         public static bool TryStartRecord()
         {
             OverlayForm form = _active;
-            if (form == null || form.IsDisposed || !form.Visible || !form._hasSel || form._busy)
+            if (form == null || form.IsDisposed || !form.Visible || form._busy)
             {
                 return false;
             }
 
-            form.StartRecord();
+            if (form._hasSel)
+            {
+                form.StartRecord();
+            }
+            else
+            {
+                form._recordMode = true;
+                form.Invalidate();
+            }
+
             return true;
         }
 
@@ -96,7 +106,7 @@ namespace Jietu
             return true;
         }
 
-        public static void Run(MainForm owner)
+        public static void Run(MainForm owner, bool recordMode = false)
         {
             if (_running)
             {
@@ -104,12 +114,11 @@ namespace Jietu
             }
 
             _running = true;
-            bool restore = owner != null && owner.Visible && !owner.IsDisposed;
             ScrollCapture.Outcome outcome = null;
             Rectangle record = Rectangle.Empty;
             try
             {
-                if (restore)
+                if (owner != null && owner.Visible && !owner.IsDisposed)
                 {
                     owner.Hide();
                 }
@@ -119,6 +128,7 @@ namespace Jietu
 
                 using (var overlay = new OverlayForm(owner))
                 {
+                    overlay._recordMode = recordMode;
                     overlay.ShowDialog();
                     outcome = overlay.Outcome;
                     record = overlay.RecordRegion;
@@ -131,10 +141,6 @@ namespace Jietu
             finally
             {
                 _running = false;
-                if (restore && record.IsEmpty && owner != null && !owner.IsDisposed)
-                {
-                    owner.Show();
-                }
             }
 
             if (!record.IsEmpty)
@@ -474,7 +480,20 @@ namespace Jietu
                 return;
             }
 
+            bool fresh = _drag == DragMode.New;
             _drag = DragMode.None;
+            if (_recordMode && fresh)
+            {
+                if (_sel.Width < 8 || _sel.Height < 8)
+                {
+                    _sel = new Rectangle(0, 0, _shot.Width, _shot.Height);
+                }
+
+                _hasSel = true;
+                StartRecord();
+                return;
+            }
+
             if (_sel.Width >= 8 && _sel.Height >= 8)
             {
                 _hasSel = true;
@@ -606,6 +625,10 @@ namespace Jietu
                 else if (_hasSel)
                 {
                     text = "悬停图标可看名称    Enter 复制    ↓→ 长图    Esc 取消";
+                }
+                else if (_recordMode)
+                {
+                    text = "录屏：拖拽框选区域后立即开始，单击录制整个屏幕，Esc 取消";
                 }
                 else
                 {
