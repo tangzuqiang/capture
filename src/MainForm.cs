@@ -26,7 +26,7 @@ namespace Shiying
         public MainForm()
         {
             AppSettings.Load();
-            Text = "拾影";
+            Text = AppInfo.Title;
             StartPosition = FormStartPosition.CenterScreen;
             FormBorderStyle = FormBorderStyle.FixedSingle;
             MaximizeBox = false;
@@ -607,7 +607,7 @@ namespace Shiying
 
         static string TrayText()
         {
-            string text = "拾影  " + AppSettings.FormatGesture(AppSettings.Gesture);
+            string text = AppInfo.Title + "  " + AppSettings.FormatGesture(AppSettings.Gesture);
             if (text.Length > 63)
             {
                 text = text.Substring(0, 63);

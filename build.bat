@@ -33,6 +33,7 @@ if not exist bin mkdir bin
   src\Program.cs ^
   src\NativeMethods.cs ^
   src\AppSettings.cs ^
+  src\AppInfo.cs ^
   src\Theme.cs ^
   src\Markup.cs ^
   src\OcrText.cs ^
@@ -58,6 +59,12 @@ if not exist bin mkdir bin
   src\UiTest.cs
 
 if errorlevel 1 exit /b 1
+
+rem 版本号取自 Shiying.csproj，写进 version.txt 供窗口标题显示（build.bat 只编译不递增）
+set "VER="
+for /f "delims=" %%v in ('powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\bump-version.ps1" -Print') do set "VER=%%v"
+if defined VER >"bin\version.txt" echo %VER%
+
 echo.
 call :say "7F16 8BD1 6210 529F 003A 0020" "%cd%\bin\Shiying.exe"
 if "%1"=="--test" (

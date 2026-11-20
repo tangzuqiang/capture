@@ -2,41 +2,87 @@
 setlocal
 cd /d "%~dp0"
 
+rem ==================== 发布目标（只改这几行，不用另外配置）====================
+set "PUB_HOST=root@111.230.247.111"
+set "PUB_DIR=/usr/share/nginx/html/shiying"
+set "GIT_REMOTE=origin"
+set "GIT_BRANCH=master"
+rem ==========================================================================
+
 set "DOTNET=%ProgramFiles%\dotnet\dotnet.exe"
 set "ISCC=%LocalAppData%\Programs\Inno Setup 6\ISCC.exe"
 if not exist "%ISCC%" set "ISCC=%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe"
 if not exist "%ISCC%" set "ISCC=%ProgramFiles%\Inno Setup 6\ISCC.exe"
 
 if not exist "%DOTNET%" (
-  call :say "672A 627E 5230 0020 002E 004E 0045 0054 0020 0053 0044 004B 3002 8BF7 5148 5B89 88C5 0020 004D 0069 0063 0072 006F 0073 006F 0066 0074 0020 002E 004E 0045 0054 0020 0053 0044 004B 0020 0031 0030 3002"
+  echo !! .NET SDK not found: %DOTNET%
   exit /b 1
 )
 if not exist "%ISCC%" (
-  call :say "672A 627E 5230 0020 0049 006E 006E 006F 0020 0053 0065 0074 0075 0070 0020 0036 0020 7684 0020 0049 0053 0043 0043 002E 0065 0078 0065 3002"
+  echo !! Inno Setup 6 not found ^(ISCC.exe^)
   exit /b 1
 )
 
+echo [1/6] bump version
+set "NEWVER="
+for /f "delims=" %%v in ('powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\bump-version.ps1"') do set "NEWVER=%%v"
+if not defined NEWVER (
+  echo !! bump version failed
+  exit /b 1
+)
+echo     version =^> %NEWVER%
+
+echo [2/6] fetch models
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\fetch-models.ps1"
-if errorlevel 1 exit /b 1
+if errorlevel 1 goto :fail
 
-if exist "%~dp0publish\win-x64" rmdir /s /q "%~dp0publish\win-x64"
-"%DOTNET%" publish "%~dp0Shiying.csproj" -c Release -o "%~dp0publish\win-x64"
-if errorlevel 1 exit /b 1
+echo [3/6] dotnet publish
+if exist "publish\win-x64" rmdir /s /q "publish\win-x64"
+"%DOTNET%" publish "Shiying.csproj" -c Release -o "publish\win-x64"
+if errorlevel 1 goto :fail
+>"publish\win-x64\version.txt" echo %NEWVER%
 
-"%ISCC%" "%~dp0installer\shiying.iss"
-if errorlevel 1 exit /b 1
+echo [4/6] build installer
+if exist "dist\*.exe" del /q "dist\*.exe"
+"%ISCC%" /DAppVersion=%NEWVER% "installer\shiying.iss"
+if errorlevel 1 goto :fail
 
+echo [5/6] git commit + push
+set "GIT_TERMINAL_PROMPT=0"
+git add -A
+git commit -m "release: v%NEWVER%"
+if errorlevel 1 echo     nothing to commit
+git push %GIT_REMOTE% %GIT_BRANCH%
+if errorlevel 1 echo !! git push FAILED - please push manually
+set "COMMITTED=1"
+
+echo [6/6] upload to %PUB_HOST%
+ssh -o StrictHostKeyChecking=accept-new %PUB_HOST% "mkdir -p %PUB_DIR%"
+if errorlevel 1 goto :fail
+set "UPFAIL="
+for %%f in ("dist\*.exe") do (
+  echo     upload %%~nxf
+  scp "%%~ff" %PUB_HOST%:%PUB_DIR%/
+  if errorlevel 1 set "UPFAIL=1"
+)
+if defined UPFAIL (
+  echo !! upload FAILED
+  goto :fail
+)
+ssh %PUB_HOST% "ls -lh %PUB_DIR%"
+if errorlevel 1 goto :fail
+
+del /q "Shiying.csproj.releasebak" 2>nul
 echo.
-call :say "5B89 88C5 5305 003A 0020" "%~dp0dist\" "62FE 5F71 5B89 88C5 5305 002E 0065 0078 0065"
-endlocal
+echo DONE - Shiying v%NEWVER% published
 exit /b 0
 
-rem Print Unicode from code points. The bat stays ASCII, so a cp936 console shows Chinese correctly.
-:say
-setlocal
-set "SHIYING_SAY_PRE=%~1"
-set "SHIYING_SAY_MID=%~2"
-set "SHIYING_SAY_SUF=%~3"
-powershell -NoProfile -Command "$p=''; foreach($c in $env:SHIYING_SAY_PRE.Split(' ')){ if($c){ $p += [char]([Convert]::ToInt32($c,16)) } }; $s=''; if($env:SHIYING_SAY_SUF){ foreach($c in $env:SHIYING_SAY_SUF.Split(' ')){ if($c){ $s += [char]([Convert]::ToInt32($c,16)) } } }; Write-Host ($p + $env:SHIYING_SAY_MID + $s)"
-endlocal
-exit /b 0
+:fail
+echo.
+if defined COMMITTED (
+  echo !! FAILED after commit - Shiying.csproj stays at v%NEWVER%
+) else (
+  echo !! FAILED - rolling back version
+  if exist "Shiying.csproj.releasebak" move /y "Shiying.csproj.releasebak" "Shiying.csproj" >nul
+)
+exit /b 1

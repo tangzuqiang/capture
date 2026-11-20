@@ -1,7 +1,9 @@
 ; 拾影安装包。程序目录自带 .NET 运行时，目标电脑不需要另外安装 .NET。
 
 #define AppName "拾影"
-#define AppVersion "1.0.0"
+#ifndef AppVersion
+  #define AppVersion "0.0.0"
+#endif
 #define AppExe "Shiying.exe"
 #define PublishDir "..\publish\win-x64"
 
