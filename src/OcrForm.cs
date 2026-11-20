@@ -1,6 +1,5 @@
 using System;
 using System.Drawing;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace Jietu
@@ -8,53 +7,43 @@ namespace Jietu
     sealed class OcrForm : Form
     {
         readonly TextBox _box;
-        readonly TextBox _result;
-        readonly SplitContainer _split;
         readonly Label _status;
-        readonly Button _translate;
-        readonly Button _copyResult;
-        bool _translating;
+        readonly Button _edit;
+        string _savedText;
 
-        public OcrForm(string text, bool translate)
+        public OcrForm(string text)
         {
-            Text = translate ? "识别并翻译" : "识别文字";
+            Text = "识别文字";
             FormBorderStyle = FormBorderStyle.Sizable;
             MaximizeBox = true;
             MinimizeBox = false;
             ShowInTaskbar = false;
             StartPosition = FormStartPosition.Manual;
             Font = new Font("Microsoft YaHei UI", 11f, FontStyle.Regular, GraphicsUnit.Point);
-            BackColor = Color.White;
-            MinimumSize = new Size(560, 320);
-            Size = new Size(680, translate ? 560 : 420);
+            Theme.Apply(this);
+            MinimumSize = new Size(440, 280);
+            Size = new Size(620, 420);
             TopMost = true;
             KeyPreview = true;
 
             var bar = new Panel();
             bar.Dock = DockStyle.Bottom;
             bar.Height = 52;
-            bar.BackColor = Color.White;
+            bar.BackColor = Theme.Page;
 
             _status = new Label();
             _status.AutoSize = false;
             _status.Dock = DockStyle.Fill;
             _status.TextAlign = ContentAlignment.MiddleLeft;
-            _status.ForeColor = Theme.SubText;
             _status.Font = Theme.UiFont();
             _status.AutoEllipsis = true;
             _status.Padding = new Padding(12, 0, 0, 0);
-            _status.Text = translate ? "正在翻译…" : "已复制到剪贴板，可以改完再复制";
 
-            var model = Theme.Button("模型配置", false);
-            _translate = Theme.Button("翻译", false);
-            var copy = Theme.Button("复制原文", !translate);
-            _copyResult = Theme.Button("复制译文", true);
+            _edit = Theme.Button("编辑", false);
+            var copy = Theme.Button("复制", true);
             var close = Theme.Button("关闭", false);
-            _copyResult.Visible = false;
-            model.Click += (s, e) => ModelForm.Edit(this);
-            _translate.Click += (s, e) => Translate();
-            copy.Click += (s, e) => CopyText(_box.Text, "已复制原文");
-            _copyResult.Click += (s, e) => CopyText(_result.Text, "已复制译文");
+            _edit.Click += (s, e) => ToggleEdit();
+            copy.Click += (s, e) => CopyAll();
             close.Click += (s, e) => Close();
 
             var buttons = new FlowLayoutPanel();
@@ -65,56 +54,82 @@ namespace Jietu
             buttons.WrapContents = false;
             buttons.Padding = new Padding(0, 8, 8, 0);
             buttons.Controls.Add(close);
-            buttons.Controls.Add(_copyResult);
             buttons.Controls.Add(copy);
-            buttons.Controls.Add(_translate);
-            buttons.Controls.Add(model);
+            buttons.Controls.Add(_edit);
             bar.Controls.Add(_status);
             bar.Controls.Add(buttons);
 
-            _box = Editor(text ?? "");
-            _result = Editor("");
-
-            _split = new SplitContainer();
-            _split.Dock = DockStyle.Fill;
-            _split.Orientation = Orientation.Horizontal;
-            _split.BackColor = Theme.Line;
-            _split.SplitterWidth = 1;
-            _split.Panel1.Controls.Add(Section("原文", _box));
-            _split.Panel2.Controls.Add(Section("译文", _result));
-            _split.Panel2Collapsed = !translate;
-
-            Controls.Add(_split);
-            Controls.Add(bar);
-
-            if (translate)
+            _box = new TextBox();
+            _box.Multiline = true;
+            _box.ScrollBars = ScrollBars.Both;
+            _box.WordWrap = true;
+            _box.BorderStyle = BorderStyle.None;
+            _box.Dock = DockStyle.Fill;
+            _box.HideSelection = false;
+            _box.ReadOnly = true;
+            Theme.Input(_box);
+            _box.Text = text ?? "";
+            _box.DoubleClick += (s, e) =>
             {
-                Shown += (s, e) => Translate();
-            }
+                if (_box.ReadOnly)
+                {
+                    ToggleEdit();
+                }
+            };
+
+            var host = new Panel();
+            host.Dock = DockStyle.Fill;
+            host.Padding = new Padding(14, 12, 14, 8);
+            host.BackColor = Theme.Surface;
+            host.Margin = new Padding(0);
+            host.Controls.Add(_box);
+
+            Controls.Add(host);
+            Controls.Add(bar);
+            ShowStatus("已复制到剪贴板，点“编辑”可修改", false);
         }
 
-        protected override void OnLoad(EventArgs e)
+        public bool Editing
         {
-            base.OnLoad(e);
-            CenterSplit();
+            get { return !_box.ReadOnly; }
+        }
+
+        public string Content
+        {
+            get { return _box.Text; }
+        }
+
+        protected override void OnShown(EventArgs e)
+        {
+            base.OnShown(e);
+            _box.SelectionStart = 0;
+            _box.SelectionLength = 0;
         }
 
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
         {
             if (keyData == (Keys.Control | Keys.Enter))
             {
-                CopyText(_box.Text, "已复制原文");
+                CopyAll();
                 return true;
             }
 
-            if (keyData == (Keys.Control | Keys.T))
+            if (keyData == (Keys.Control | Keys.E))
             {
-                Translate();
+                ToggleEdit();
                 return true;
             }
 
             if (keyData == Keys.Escape)
             {
+                if (Editing)
+                {
+                    _box.Text = _savedText;
+                    SetEditing(false);
+                    ShowStatus("已撤销本次修改", false);
+                    return true;
+                }
+
                 Close();
                 return true;
             }
@@ -122,134 +137,40 @@ namespace Jietu
             return base.ProcessCmdKey(ref msg, keyData);
         }
 
-        static TextBox Editor(string text)
+        public void ToggleEdit()
         {
-            var box = new TextBox();
-            box.Multiline = true;
-            box.ScrollBars = ScrollBars.Both;
-            box.WordWrap = true;
-            box.BorderStyle = BorderStyle.None;
-            box.Dock = DockStyle.Fill;
-            box.HideSelection = false;
-            box.Text = text;
-            return box;
-        }
-
-        static Control Section(string caption, TextBox box)
-        {
-            var host = new Panel();
-            host.Dock = DockStyle.Fill;
-            host.Padding = new Padding(12, 4, 12, 4);
-            host.BackColor = Color.White;
-
-            var label = new Label();
-            label.Text = caption;
-            label.Dock = DockStyle.Top;
-            label.Height = 24;
-            label.ForeColor = Theme.SubText;
-            label.Font = Theme.UiFont();
-            label.TextAlign = ContentAlignment.MiddleLeft;
-
-            host.Controls.Add(box);
-            host.Controls.Add(label);
-            return host;
-        }
-
-        void CenterSplit()
-        {
-            if (!_split.Panel2Collapsed && _split.Height > 120)
+            if (Editing)
             {
-                _split.SplitterDistance = _split.Height / 2;
-            }
-        }
-
-        void Translate()
-        {
-            if (_translating)
-            {
+                SetEditing(false);
+                ShowStatus("修改已保存，点“复制”带走", false);
                 return;
             }
 
-            string source = (_box.Text ?? "").Trim();
-            if (source.Length == 0)
-            {
-                ShowStatus("没有可翻译的文字", true);
-                return;
-            }
-
-            if (!AppSettings.LlmConfigured)
-            {
-                ShowStatus("请先配置翻译模型", true);
-                if (!ModelForm.Edit(this))
-                {
-                    return;
-                }
-            }
-
-            bool wasCollapsed = _split.Panel2Collapsed;
-            _split.Panel2Collapsed = false;
-            if (wasCollapsed)
-            {
-                if (Height < 520)
-                {
-                    Height = 560;
-                }
-
-                CenterSplit();
-            }
-
-            _translating = true;
-            _translate.Enabled = false;
-            _copyResult.Visible = false;
-            _result.Text = "";
-            ShowStatus("正在翻译…", false);
-            LlmConfig config = LlmConfig.FromSettings();
-            Task.Run(() => LlmTranslator.Translate(source, config)).ContinueWith(done =>
-            {
-                if (IsDisposed || !IsHandleCreated)
-                {
-                    return;
-                }
-
-                try
-                {
-                    BeginInvoke(new Action(() => FinishTranslate(done)));
-                }
-                catch (InvalidOperationException)
-                {
-                }
-            });
+            _savedText = _box.Text;
+            SetEditing(true);
+            _box.Focus();
+            _box.SelectionStart = _box.TextLength;
+            _box.SelectionLength = 0;
+            ShowStatus("编辑中：改完点“完成”，Esc 撤销修改", false);
         }
 
-        void FinishTranslate(Task<string> task)
+        void SetEditing(bool editing)
         {
-            _translating = false;
-            _translate.Enabled = true;
-            if (task.IsFaulted || task.IsCanceled)
+            _box.ReadOnly = !editing;
+            _box.BackColor = editing ? Theme.SurfaceHigh : Theme.Surface;
+            if (_box.Parent != null)
             {
-                Exception ex = task.Exception == null ? null : task.Exception.GetBaseException();
-                ShowStatus(ex == null ? "翻译失败" : "翻译失败：" + ex.Message, true);
-                return;
+                _box.Parent.BackColor = _box.BackColor;
             }
-
-            _result.Text = task.Result ?? "";
-            _copyResult.Visible = _result.TextLength > 0;
-            if (_result.TextLength > 0)
-            {
-                CopyText(_result.Text, "译文已复制到剪贴板");
-            }
-            else
-            {
-                ShowStatus("模型没有返回译文", true);
-            }
+            _edit.Text = editing ? "完成" : "编辑";
         }
 
-        void CopyText(string text, string done)
+        public void CopyAll()
         {
             try
             {
-                ScreenGrab.CopyText(text ?? "");
-                ShowStatus(done, false);
+                ScreenGrab.CopyText(_box.Text ?? "");
+                ShowStatus(Editing ? "已复制当前内容" : "已复制全部文字", false);
             }
             catch (Exception ex)
             {
@@ -260,7 +181,7 @@ namespace Jietu
         void ShowStatus(string text, bool bad)
         {
             _status.Text = text;
-            _status.ForeColor = bad ? Markup.Red : Theme.SubText;
+            _status.ForeColor = bad ? Theme.Danger : Theme.SubText;
         }
     }
 }

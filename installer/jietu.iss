@@ -22,6 +22,7 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 PrivilegesRequired=admin
 UninstallDisplayIcon={app}\{#AppExe}
+SetupIconFile=..\assets\capture.ico
 WizardStyle=modern
 SetupLogging=yes
 

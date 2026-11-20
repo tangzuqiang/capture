@@ -93,8 +93,9 @@ namespace Jietu
             StartPosition = FormStartPosition.Manual;
             AutoSize = true;
             AutoSizeMode = AutoSizeMode.GrowAndShrink;
-            BackColor = Color.White;
-            Padding = new Padding(4, 4, 4, 4);
+            BackColor = Theme.Surface;
+            ForeColor = Theme.Text;
+            Padding = new Padding(6, 5, 6, 5);
             KeyPreview = true;
 
             RectButton = MakeIcon(ToolGlyph.Rect, "矩形");
@@ -135,17 +136,31 @@ namespace Jietu
             _phraseHost = new Panel();
             _phraseHost.Size = new Size(176, 28);
             _phraseHost.Margin = new Padding(2, 4, 4, 2);
-            _phraseHost.BackColor = Color.White;
+            _phraseHost.BackColor = Theme.Page;
             _phraseHost.Paint += (s, e) =>
             {
-                using (var pen = new Pen(Theme.Line))
+                var frame = new RectangleF(0, 0, _phraseHost.Width - 1, _phraseHost.Height - 1);
+                if (_phrase != null && _phrase.Focused)
                 {
-                    e.Graphics.DrawRectangle(pen, 0, 0, _phraseHost.Width - 1, _phraseHost.Height - 1);
+                    using (LinearGradientBrush ring = Theme.AccentBrush(frame))
+                    using (var pen = new Pen(ring, 1.4f))
+                    {
+                        e.Graphics.DrawRectangle(pen, frame.X, frame.Y, frame.Width, frame.Height);
+                    }
+                }
+                else
+                {
+                    using (var pen = new Pen(Theme.Line))
+                    {
+                        e.Graphics.DrawRectangle(pen, frame.X, frame.Y, frame.Width, frame.Height);
+                    }
                 }
             };
 
             _phrase = new TextBox();
             _phrase.BorderStyle = BorderStyle.None;
+            _phrase.BackColor = Theme.Page;
+            _phrase.ForeColor = Theme.Text;
             _phrase.Font = Theme.UiFont();
             _phrase.Location = new Point(8, 6);
             _phrase.Size = new Size(160, 18);
@@ -158,13 +173,21 @@ namespace Jietu
                     PhraseChanged(this, EventArgs.Empty);
                 }
             };
-            _phrase.GotFocus += (s, e) => RefreshHint();
-            _phrase.LostFocus += (s, e) => RefreshHint();
+            _phrase.GotFocus += (s, e) =>
+            {
+                RefreshHint();
+                _phraseHost.Invalidate();
+            };
+            _phrase.LostFocus += (s, e) =>
+            {
+                RefreshHint();
+                _phraseHost.Invalidate();
+            };
 
             _hint = new Label();
             _hint.Text = "最多输入16个字符";
             _hint.ForeColor = Theme.SubText;
-            _hint.BackColor = Color.White;
+            _hint.BackColor = Theme.Page;
             _hint.Font = Theme.UiFont();
             _hint.AutoSize = false;
             _hint.Location = new Point(6, 4);
@@ -217,7 +240,7 @@ namespace Jietu
             stack.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             stack.FlowDirection = FlowDirection.TopDown;
             stack.WrapContents = false;
-            stack.BackColor = Color.White;
+            stack.BackColor = Theme.Surface;
             stack.Margin = new Padding(0);
             stack.Padding = new Padding(0);
             stack.Controls.Add(tools);
@@ -230,6 +253,7 @@ namespace Jietu
             };
 
             var tip = new ToolTip();
+            Theme.DarkTips(tip);
             tip.InitialDelay = 280;
             tip.ReshowDelay = 80;
             tip.AutoPopDelay = 4000;
@@ -243,7 +267,7 @@ namespace Jietu
             Tip(tip, PinButton, "钉");
             Tip(tip, UndoButton, "撤回");
             Tip(tip, OcrButton, "识别文字");
-            Tip(tip, TranslateButton, "识别并翻译");
+            Tip(tip, TranslateButton, "翻译");
             Tip(tip, CopyButton, "复制");
             Tip(tip, SaveButton, "保存");
             Tip(tip, VerticalButton, "纵向长图");
@@ -361,7 +385,7 @@ namespace Jietu
             row.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             row.WrapContents = false;
             row.FlowDirection = FlowDirection.LeftToRight;
-            row.BackColor = Color.White;
+            row.BackColor = Theme.Surface;
             row.Margin = new Padding(0);
             row.Padding = new Padding(0);
             return row;
@@ -399,12 +423,24 @@ namespace Jietu
             }
         }
 
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            base.OnHandleCreated(e);
+            Theme.RoundCorners(Handle);
+        }
+
         protected override void OnPaint(PaintEventArgs e)
         {
             base.OnPaint(e);
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
             using (var pen = new Pen(Theme.Line))
             {
                 e.Graphics.DrawRectangle(pen, 0, 0, Width - 1, Height - 1);
+            }
+
+            using (LinearGradientBrush glow = Theme.AccentBrush(new RectangleF(0, 0, Width, 2)))
+            {
+                e.Graphics.FillRectangle(glow, 0, 0, Width, 2);
             }
         }
     }
@@ -494,25 +530,43 @@ namespace Jietu
             Graphics g = e.Graphics;
             g.SmoothingMode = SmoothingMode.AntiAlias;
             g.PixelOffsetMode = PixelOffsetMode.HighQuality;
-            Color back = _active ? Color.FromArgb(232, 234, 237) : (_hover ? Color.FromArgb(245, 247, 250) : Color.White);
-            using (GraphicsPath path = Round(new Rectangle(1, 1, Width - 3, Height - 3), 6))
-            using (var brush = new SolidBrush(back))
+            g.Clear(Theme.Surface);
+            var bounds = new RectangleF(1.5f, 1.5f, Width - 3f, Height - 3f);
+            Color hole = Theme.Surface;
+            using (GraphicsPath path = Theme.Round(bounds, 7))
             {
-                g.FillPath(brush, path);
+                if (_active)
+                {
+                    using (LinearGradientBrush brush = Theme.AccentBrush(bounds))
+                    {
+                        g.FillPath(brush, path);
+                    }
+
+                    hole = Theme.Accent;
+                }
+                else if (_hover)
+                {
+                    using (var brush = new SolidBrush(Theme.SurfaceHigh))
+                    {
+                        g.FillPath(brush, path);
+                    }
+
+                    hole = Theme.SurfaceHigh;
+                }
             }
 
-            Color ink = _accent ? Theme.Accent : Theme.Text;
+            Color ink = _active ? Color.White : (_accent ? Theme.Accent : (_hover ? Color.White : Theme.Text));
             using (var pen = new Pen(ink, 1.6f))
             using (var brush = new SolidBrush(ink))
             {
                 pen.StartCap = LineCap.Round;
                 pen.EndCap = LineCap.Round;
                 pen.LineJoin = LineJoin.Round;
-                DrawGlyph(g, pen, brush, _glyph);
+                DrawGlyph(g, pen, brush, _glyph, hole);
             }
         }
 
-        static void DrawGlyph(Graphics g, Pen pen, Brush brush, ToolGlyph glyph)
+        static void DrawGlyph(Graphics g, Pen pen, Brush brush, ToolGlyph glyph, Color hole)
         {
             if (glyph == ToolGlyph.Rect)
             {
@@ -563,9 +617,9 @@ namespace Jietu
                     new PointF(12.2f, 14),
                     new PointF(19.8f, 14)
                 });
-                using (var hole = new SolidBrush(Color.White))
+                using (var dot = new SolidBrush(hole))
                 {
-                    g.FillEllipse(hole, 14, 7.5f, 4.2f, 4.2f);
+                    g.FillEllipse(dot, 14, 7.5f, 4.2f, 4.2f);
                 }
             }
             else if (glyph == ToolGlyph.Undo)
@@ -638,17 +692,6 @@ namespace Jietu
             }
         }
 
-        static GraphicsPath Round(Rectangle bounds, int radius)
-        {
-            int d = radius * 2;
-            var path = new GraphicsPath();
-            path.AddArc(bounds.X, bounds.Y, d, d, 180, 90);
-            path.AddArc(bounds.Right - d, bounds.Y, d, d, 270, 90);
-            path.AddArc(bounds.Right - d, bounds.Bottom - d, d, d, 0, 90);
-            path.AddArc(bounds.X, bounds.Bottom - d, d, d, 90, 90);
-            path.CloseFigure();
-            return path;
-        }
     }
 
     sealed class SwatchDot : Control
@@ -712,6 +755,7 @@ namespace Jietu
         protected override void OnPaint(PaintEventArgs e)
         {
             Graphics g = e.Graphics;
+            g.Clear(Theme.Surface);
             g.SmoothingMode = SmoothingMode.AntiAlias;
             var dot = new Rectangle(1, 1, Width - 3, Height - 3);
             using (var brush = new SolidBrush(_ink))
@@ -719,9 +763,9 @@ namespace Jietu
                 g.FillEllipse(brush, dot);
             }
 
-            if (_ink.R > 235 && _ink.G > 235 && _ink.B > 235)
+            if (_ink.R + _ink.G + _ink.B < 150)
             {
-                using (var pen = new Pen(Theme.Line))
+                using (var pen = new Pen(Theme.SubText))
                 {
                     g.DrawEllipse(pen, dot);
                 }
@@ -816,14 +860,16 @@ namespace Jietu
         protected override void OnPaint(PaintEventArgs e)
         {
             Graphics g = e.Graphics;
+            g.Clear(Theme.Surface);
             g.SmoothingMode = SmoothingMode.AntiAlias;
             int y = Height / 2;
             int left = 8;
             int right = Width - 8;
             float t = (_value - 40) / 215f;
             int x = left + (int)Math.Round((right - left) * t);
-            using (var track = new Pen(Color.FromArgb(220, 223, 230), 3f))
-            using (var fill = new Pen(Theme.Accent, 3f))
+            using (var track = new Pen(Theme.Line, 3f))
+            using (LinearGradientBrush gradient = Theme.AccentBrush(new RectangleF(left, y - 2, right - left, 4)))
+            using (var fill = new Pen(gradient, 3f))
             {
                 track.StartCap = LineCap.Round;
                 track.EndCap = LineCap.Round;

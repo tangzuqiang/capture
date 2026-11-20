@@ -19,7 +19,7 @@ namespace Jietu
             _image = outcome.Image;
             Text = "截长图";
             StartPosition = FormStartPosition.CenterScreen;
-            BackColor = Color.White;
+            Theme.Apply(this);
             Font = Theme.UiFont();
             MinimumSize = new Size(640, 420);
             KeyPreview = true;
@@ -30,7 +30,7 @@ namespace Jietu
             var bar = new Panel();
             bar.Dock = DockStyle.Top;
             bar.Height = 56;
-            bar.BackColor = Color.White;
+            bar.BackColor = Theme.Surface;
 
             _info = new Label();
             _info.AutoSize = false;
@@ -69,6 +69,7 @@ namespace Jietu
             _canvas.Dock = DockStyle.Fill;
             _canvas.AutoScroll = true;
             _canvas.BackColor = Theme.Canvas;
+            _canvas.HandleCreated += (s, e) => Theme.DarkScrollbars(_canvas.Handle);
             _canvas.Resize += (s, e) =>
             {
                 if (_fit)

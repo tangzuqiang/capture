@@ -17,7 +17,7 @@ if not defined CSC (
 set "FW=%SystemRoot%\Microsoft.NET\Framework64\v4.0.30319"
 if not exist bin mkdir bin
 
-"%CSC%" /nologo /t:winexe /platform:x64 /optimize+ /unsafe /langversion:latest /codepage:65001 /win32manifest:app.manifest /out:bin\Jietu.exe ^
+"%CSC%" /nologo /t:winexe /platform:x64 /optimize+ /unsafe /langversion:latest /codepage:65001 /win32manifest:app.manifest /win32icon:assets\capture.ico /resource:assets\capture.ico,Jietu.capture.ico /out:bin\Jietu.exe ^
   /r:"%FW%\System.dll" ^
   /r:"%FW%\System.Core.dll" ^
   /r:"%FW%\System.Drawing.dll" ^
@@ -32,6 +32,7 @@ if not exist bin mkdir bin
   src\LlmTranslator.cs ^
   src\ModelForm.cs ^
   src\OcrForm.cs ^
+  src\TranslateForm.cs ^
   src\ScreenGrab.cs ^
   src\ImageStitcher.cs ^
   src\ScrollCapture.cs ^

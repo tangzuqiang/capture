@@ -48,7 +48,7 @@ namespace Jietu
         Mark _draft;
         int _editIndex = -1;
         bool _styleLock;
-        OcrForm _ocrForm;
+        Form _ocrForm;
         public ScrollCapture.Outcome Outcome;
 
         public static bool TryGetCursorColor(out Color color)
@@ -532,17 +532,7 @@ namespace Jietu
             {
                 Rectangle dest = ToClient(_sel);
                 g.DrawImage(_shot, dest, _sel, GraphicsUnit.Pixel);
-                using (var white = new Pen(Color.White, 1f))
-                using (var blue = new Pen(Theme.Accent, 2f))
-                {
-                    if (dest.Width > 3 && dest.Height > 3)
-                    {
-                        g.DrawRectangle(white, dest.X + 1, dest.Y + 1, dest.Width - 3, dest.Height - 3);
-                    }
-
-                    g.DrawRectangle(blue, dest.X, dest.Y, Math.Max(1, dest.Width - 1), Math.Max(1, dest.Height - 1));
-                }
-
+                DrawFrame(g, dest);
                 DrawSizeTag(g, dest);
                 DrawMarks(g);
                 if (_hasSel && _tool == AnnotateTool.None)
@@ -603,14 +593,50 @@ namespace Jietu
             using (var font = Theme.UiFont())
             {
                 Size size = TextRenderer.MeasureText(text, font);
-                var box = new Rectangle((ClientSize.Width - size.Width - 28) / 2, 18, size.Width + 28, size.Height + 14);
-                using (var brush = new SolidBrush(Color.FromArgb(180, 20, 24, 28)))
+                var box = new Rectangle((ClientSize.Width - size.Width - 36) / 2, 18, size.Width + 36, size.Height + 16);
+                SmoothingMode smoothing = g.SmoothingMode;
+                PixelOffsetMode offset = g.PixelOffsetMode;
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                using (GraphicsPath pill = Theme.Round(box, box.Height / 2f))
+                using (var brush = new SolidBrush(Color.FromArgb(225, Theme.Surface)))
+                using (LinearGradientBrush ring = Theme.AccentBrush(box))
+                using (var pen = new Pen(ring, 1.2f))
                 {
-                    g.FillRectangle(brush, box);
+                    g.FillPath(brush, pill);
+                    g.DrawPath(pen, pill);
                 }
 
-                TextRenderer.DrawText(g, text, font, box, Color.White, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+                g.SmoothingMode = smoothing;
+                g.PixelOffsetMode = offset;
+                TextRenderer.DrawText(g, text, font, box, Theme.Text, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
             }
+        }
+
+        void DrawFrame(Graphics g, Rectangle dest)
+        {
+            SmoothingMode smoothing = g.SmoothingMode;
+            PixelOffsetMode offset = g.PixelOffsetMode;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.PixelOffsetMode = PixelOffsetMode.None;
+            var frame = new RectangleF(dest.X, dest.Y, Math.Max(1, dest.Width - 1), Math.Max(1, dest.Height - 1));
+            for (int i = 3; i >= 1; i--)
+            {
+                using (LinearGradientBrush halo = Theme.AccentBrush(frame, 26 * (4 - i)))
+                using (var pen = new Pen(halo, 2f + i * 2.5f))
+                {
+                    g.DrawRectangle(pen, frame.X - i, frame.Y - i, frame.Width + i * 2, frame.Height + i * 2);
+                }
+            }
+
+            using (LinearGradientBrush edge = Theme.AccentBrush(frame))
+            using (var pen = new Pen(edge, 2f))
+            {
+                g.DrawRectangle(pen, frame.X, frame.Y, frame.Width, frame.Height);
+            }
+
+            g.SmoothingMode = smoothing;
+            g.PixelOffsetMode = offset;
         }
 
         void DrawSizeTag(Graphics g, Rectangle dest)
@@ -631,12 +657,16 @@ namespace Jietu
                     x = Math.Max(4, ClientSize.Width - size.Width - 16);
                 }
 
-                var box = new Rectangle(x, y, size.Width + 10, size.Height + 4);
-                using (var brush = new SolidBrush(Theme.Accent))
+                var box = new Rectangle(x, y, size.Width + 16, size.Height + 6);
+                SmoothingMode smoothing = g.SmoothingMode;
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                using (GraphicsPath pill = Theme.Round(box, box.Height / 2f))
+                using (LinearGradientBrush brush = Theme.AccentBrush(box))
                 {
-                    g.FillRectangle(brush, box);
+                    g.FillPath(brush, pill);
                 }
 
+                g.SmoothingMode = smoothing;
                 TextRenderer.DrawText(g, text, font, box, Color.White, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
             }
         }
@@ -655,16 +685,25 @@ namespace Jietu
                 new Point(dest.Left, dest.Top + dest.Height / 2)
             };
 
+            SmoothingMode smoothing = g.SmoothingMode;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
             using (var fill = new SolidBrush(Color.White))
-            using (var pen = new Pen(Theme.Accent, 1.6f))
+            using (var glow = new SolidBrush(Color.FromArgb(70, Theme.Accent)))
             {
                 for (int i = 0; i < points.Length; i++)
                 {
-                    var r = new Rectangle(points[i].X - 4, points[i].Y - 4, 8, 8);
-                    g.FillRectangle(fill, r);
-                    g.DrawRectangle(pen, r);
+                    var r = new Rectangle(points[i].X - 5, points[i].Y - 5, 10, 10);
+                    g.FillEllipse(glow, r.X - 3, r.Y - 3, r.Width + 6, r.Height + 6);
+                    using (LinearGradientBrush ring = Theme.AccentBrush(r))
+                    using (var pen = new Pen(ring, 2f))
+                    {
+                        g.FillEllipse(fill, r);
+                        g.DrawEllipse(pen, r);
+                    }
                 }
             }
+
+            g.SmoothingMode = smoothing;
         }
 
         void DrawLoupe(Graphics g)
@@ -698,8 +737,9 @@ namespace Jietu
 
             var dest = new Rectangle(lx, ly, dw, dh);
             g.DrawImage(_shot, dest, new Rectangle(x0, y0, sw, sh), GraphicsUnit.Pixel);
-            using (var pen = new Pen(Color.White, 2f))
-            using (var blue = new Pen(Theme.Accent, 1f))
+            using (LinearGradientBrush edge = Theme.AccentBrush(dest))
+            using (var pen = new Pen(edge, 2f))
+            using (var blue = new Pen(Color.FromArgb(200, Theme.Accent), 1f))
             {
                 g.DrawRectangle(pen, dest);
                 g.DrawLine(blue, dest.Left, dest.Top + dest.Height / 2, dest.Right, dest.Top + dest.Height / 2);
@@ -720,12 +760,12 @@ namespace Jietu
                 }
 
                 var info = new Rectangle(infoX, dest.Bottom, infoW, infoH);
-                using (var brush = new SolidBrush(Color.FromArgb(230, 20, 24, 28)))
+                using (var brush = new SolidBrush(Color.FromArgb(235, Theme.Surface)))
                 {
                     g.FillRectangle(brush, info);
                 }
 
-                TextRenderer.DrawText(g, text, font, info, Color.White, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+                TextRenderer.DrawText(g, text, font, info, Theme.Text, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
             }
         }
 
@@ -1158,7 +1198,7 @@ namespace Jietu
 
             if (translate)
             {
-                ShowNote("识别完成，正在翻译", 1800);
+                ShowNote(null, 0);
                 ShowOcr(text, true);
                 return;
             }
@@ -1194,7 +1234,7 @@ namespace Jietu
                 _ocrForm.Close();
             }
 
-            _ocrForm = new OcrForm(text, translate);
+            _ocrForm = translate ? (Form)new TranslateForm(text) : new OcrForm(text);
             _ocrForm.Show(this);
             Rectangle monitor = Screen.FromControl(this).WorkingArea;
             int x = monitor.Left + Math.Max(0, (monitor.Width - _ocrForm.Width) / 2);

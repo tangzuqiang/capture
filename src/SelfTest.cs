@@ -27,6 +27,8 @@ namespace Jietu
             failed += RunCase("ocr text", TestOcr);
             failed += RunCase("paddle ocr", TestPaddleOcr);
             failed += RunCase("llm translator", TestTranslator);
+            failed += RunCase("ocr window", TestOcrWindow);
+            failed += RunCase("app icon", TestAppIcon);
             if (failed == 0)
             {
                 Console.WriteLine("SELFTEST OK");
@@ -556,6 +558,59 @@ namespace Jietu
         {
             SendMessage(control.Handle, 0x0201, new IntPtr(1), IntPtr.Zero);
             SendMessage(control.Handle, 0x0202, IntPtr.Zero, IntPtr.Zero);
+        }
+
+        static string TestAppIcon()
+        {
+            using (Stream stream = typeof(SelfTest).Assembly.GetManifestResourceStream("Jietu.capture.ico"))
+            {
+                if (stream == null)
+                {
+                    return "capture.ico not embedded";
+                }
+            }
+
+            using (var big = new Icon(Theme.AppIcon, 256, 256))
+            using (var small = Theme.TrayIcon())
+            {
+                if (big.Width < 128 || small.Width > 32)
+                {
+                    return "icon sizes " + big.Width + " " + small.Width;
+                }
+            }
+
+            return null;
+        }
+
+        static string TestOcrWindow()
+        {
+            using (var form = new OcrForm("第一行\r\nsecond"))
+            {
+                form.CreateControl();
+                if (form.Editing)
+                {
+                    return "starts editable";
+                }
+
+                form.ToggleEdit();
+                if (!form.Editing)
+                {
+                    return "edit did not start";
+                }
+
+                form.ToggleEdit();
+                if (form.Editing || form.Content != "第一行\r\nsecond")
+                {
+                    return "edit did not finish";
+                }
+            }
+
+            using (var form = new TranslateForm("hello"))
+            {
+                form.CreateControl();
+            }
+
+            return null;
         }
 
         static string TestTranslator()

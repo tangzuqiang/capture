@@ -28,7 +28,7 @@ namespace Jietu
             StartPosition = FormStartPosition.CenterScreen;
             AutoScaleMode = AutoScaleMode.Dpi;
             ClientSize = new Size(540, 432);
-            BackColor = Theme.Page;
+            Theme.Apply(this);
             Font = Theme.UiFont();
             TopMost = true;
             KeyPreview = true;
@@ -49,7 +49,7 @@ namespace Jietu
 
             _preset = new ComboBox();
             _preset.DropDownStyle = ComboBoxStyle.DropDownList;
-            _preset.FlatStyle = FlatStyle.Flat;
+            Theme.Input(_preset);
             _preset.Items.AddRange(LlmPreset.All);
             _preset.SelectedIndexChanged += (s, e) => ApplyPreset();
 
@@ -73,7 +73,7 @@ namespace Jietu
 
             _target = new ComboBox();
             _target.DropDownStyle = ComboBoxStyle.DropDownList;
-            _target.FlatStyle = FlatStyle.Flat;
+            Theme.Input(_target);
             _target.Items.AddRange(TranslateTarget.All);
 
             AddRow("服务商", _preset, 80, 396);
@@ -167,8 +167,7 @@ namespace Jietu
         {
             var box = new TextBox();
             box.BorderStyle = BorderStyle.FixedSingle;
-            box.BackColor = Color.White;
-            box.ForeColor = Theme.Text;
+            Theme.Input(box);
             return box;
         }
 
@@ -270,7 +269,7 @@ namespace Jietu
         void ShowStatus(string text, bool bad)
         {
             _status.Text = text;
-            _status.ForeColor = bad ? Markup.Red : Theme.SubText;
+            _status.ForeColor = bad ? Theme.Danger : Theme.SubText;
         }
 
         void TestConnection()

@@ -16,6 +16,8 @@ namespace Jietu
         bool _tipped;
         static readonly int[] HotkeyIds = { 1, 2, 3 };
         static readonly string[] HotkeyNames = { "截图", "复制 RGB", "复制网页色" };
+        static readonly Rectangle HelpCard = new Rectangle(24, 292, 512, 180);
+        const int HeaderHeight = 104;
 
         public MainForm()
         {
@@ -24,62 +26,56 @@ namespace Jietu
             StartPosition = FormStartPosition.CenterScreen;
             FormBorderStyle = FormBorderStyle.FixedSingle;
             MaximizeBox = false;
-            ClientSize = new Size(560, 520);
-            BackColor = Theme.Page;
+            ClientSize = new Size(560, 540);
+            Theme.Apply(this);
+            DoubleBuffered = true;
             Font = Theme.UiFont();
-            Icon = CreateIcon();
 
             var title = new Label();
             title.Text = "截长图";
             title.Font = Theme.TitleFont();
-            title.ForeColor = Theme.Text;
+            title.ForeColor = Color.White;
             title.AutoSize = true;
-            title.Location = new Point(28, 22);
-            title.BackColor = Theme.Page;
+            title.Location = new Point(26, 16);
+            title.BackColor = Color.Transparent;
 
             var sub = new Label();
             sub.Text = "先框选区域，再自动滚动窗口并拼接。交互接近钉钉的滚动截屏：表头和底栏只保留一次。";
-            sub.ForeColor = Theme.SubText;
-            sub.Location = new Point(28, 64);
-            sub.Size = new Size(500, 44);
-            sub.BackColor = Theme.Page;
+            sub.ForeColor = Color.FromArgb(214, 222, 245);
+            sub.Location = new Point(28, 60);
+            sub.Size = new Size(500, 38);
+            sub.BackColor = Color.Transparent;
 
             var pickFolder = Theme.Button("截图文件保存位置", false);
-            pickFolder.Location = new Point(28, 108);
+            pickFolder.Location = new Point(28, 120);
             pickFolder.Size = new Size(196, 36);
             pickFolder.AutoSize = false;
             pickFolder.Click += (s, e) => PickSaveFolder();
 
             _savePath = new TextBox();
-            _savePath.Location = new Point(232, 113);
+            _savePath.Location = new Point(232, 125);
             _savePath.Size = new Size(300, 26);
             _savePath.Font = Theme.UiFont();
             _savePath.ReadOnly = true;
-            _savePath.BackColor = Color.White;
-            _savePath.ForeColor = Theme.Text;
+            Theme.Input(_savePath);
             _savePath.BorderStyle = BorderStyle.FixedSingle;
             _savePath.TabStop = false;
             ShowSaveFolder();
 
             _hotkeyHint = new Label();
             _hotkeyHint.AutoSize = false;
-            _hotkeyHint.Location = new Point(316, 156);
+            _hotkeyHint.Location = new Point(316, 170);
             _hotkeyHint.Size = new Size(216, 96);
             _hotkeyHint.TextAlign = ContentAlignment.TopLeft;
             _hotkeyHint.ForeColor = Theme.SubText;
             _hotkeyHint.BackColor = Theme.Page;
             _hotkeyHint.Text = "点击输入框后按下新键";
 
-            var line = new Panel();
-            line.BackColor = Theme.Line;
-            line.Location = new Point(28, 268);
-            line.Size = new Size(504, 1);
-
             var help = new Label();
             help.ForeColor = Theme.Text;
-            help.BackColor = Theme.Page;
-            help.Location = new Point(28, 280);
-            help.Size = new Size(504, 168);
+            help.BackColor = Theme.Surface;
+            help.Location = new Point(40, HelpCard.Y + 14);
+            help.Size = new Size(HelpCard.Width - 32, HelpCard.Height - 24);
             help.Text =
                 "1. 快捷键会截取鼠标所在的那块屏幕，拖出一个矩形。\r\n" +
                 "2. 框选后可用图标标注、识别文字或用大模型翻译，悬停可看名称。\r\n" +
@@ -94,13 +90,13 @@ namespace Jietu
             paceLabel.AutoSize = true;
             paceLabel.ForeColor = Theme.SubText;
             paceLabel.BackColor = Theme.Page;
-            paceLabel.Location = new Point(28, 462);
+            paceLabel.Location = new Point(28, 490);
 
             var pace = new ComboBox();
             pace.DropDownStyle = ComboBoxStyle.DropDownList;
-            pace.FlatStyle = FlatStyle.Flat;
+            Theme.Input(pace);
             pace.Font = Theme.UiFont();
-            pace.Location = new Point(104, 458);
+            pace.Location = new Point(104, 486);
             pace.Size = new Size(120, 28);
             pace.Items.AddRange(new object[] { "慢，更稳", "标准", "快" });
             if (AppSettings.Pace == ScrollPace.Slow) pace.SelectedIndex = 0;
@@ -114,9 +110,9 @@ namespace Jietu
                 AppSettings.Save();
             };
 
-            var modelButton = Theme.Button("翻译模型配置", false);
+            var modelButton = Theme.Button("翻译模型配置", true);
             modelButton.AutoSize = false;
-            modelButton.Location = new Point(392, 455);
+            modelButton.Location = new Point(392, 483);
             modelButton.Size = new Size(140, 34);
             modelButton.Click += (s, e) => ModelForm.Edit(this);
 
@@ -126,24 +122,24 @@ namespace Jietu
             Controls.Add(_savePath);
             for (int i = 0; i < _hotkeyBoxes.Length; i++)
             {
-                int y = 156 + i * 34;
+                int y = 170 + i * 34;
                 Controls.Add(MakeHotkeyLabel(HotkeyNames[i], y));
                 _hotkeyBoxes[i] = MakeHotkeyBox(i, y - 2);
                 Controls.Add(_hotkeyBoxes[i]);
             }
 
             Controls.Add(_hotkeyHint);
-            Controls.Add(line);
             Controls.Add(help);
             Controls.Add(paceLabel);
             Controls.Add(pace);
             Controls.Add(modelButton);
 
             _tray = new NotifyIcon();
-            _tray.Icon = Icon;
+            _tray.Icon = Theme.TrayIcon();
             _tray.Text = TrayText();
             _tray.Visible = true;
             var menu = new ContextMenuStrip();
+            Theme.DarkMenu(menu);
             menu.Items.Add("开始截图", null, (s, e) => OverlayForm.Run(this));
             menu.Items.Add("显示主窗口", null, (s, e) => ShowMain());
             menu.Items.Add("翻译模型配置", null, (s, e) => ModelForm.Edit(Visible ? this : null));
@@ -258,7 +254,7 @@ namespace Jietu
                 }
 
                 _hotkeyHint.Text = "需要带上 Ctrl、Alt 或 Shift";
-                _hotkeyHint.ForeColor = Color.FromArgb(196, 72, 48);
+                _hotkeyHint.ForeColor = Theme.Danger;
                 return true;
             }
 
@@ -322,7 +318,7 @@ namespace Jietu
             else
             {
                 _hotkeyHint.Text = problem;
-                _hotkeyHint.ForeColor = Color.FromArgb(196, 72, 48);
+                _hotkeyHint.ForeColor = Theme.Danger;
             }
         }
 
@@ -345,7 +341,7 @@ namespace Jietu
 
                 _hotkeyBoxes[slot].Text = AppSettings.FormatGesture(GestureOf(slot));
                 _hotkeyHint.Text = "需要带上 Ctrl、Alt 或 Shift";
-                _hotkeyHint.ForeColor = Color.FromArgb(196, 72, 48);
+                _hotkeyHint.ForeColor = Theme.Danger;
                 return;
             }
 
@@ -360,7 +356,7 @@ namespace Jietu
 
                     _hotkeyBoxes[slot].Text = AppSettings.FormatGesture(GestureOf(slot));
                     _hotkeyHint.Text = "已用于" + HotkeyNames[i];
-                    _hotkeyHint.ForeColor = Color.FromArgb(196, 72, 48);
+                    _hotkeyHint.ForeColor = Theme.Danger;
                     return;
                 }
             }
@@ -382,7 +378,7 @@ namespace Jietu
                 RegisterSlot(slot, GestureOf(slot));
                 _hotkeyBoxes[slot].Text = AppSettings.FormatGesture(GestureOf(slot));
                 _hotkeyHint.Text = "这个组合已被占用";
-                _hotkeyHint.ForeColor = Color.FromArgb(196, 72, 48);
+                _hotkeyHint.ForeColor = Theme.Danger;
                 return;
             }
 
@@ -473,7 +469,7 @@ namespace Jietu
             box.Font = Theme.UiFont();
             box.ReadOnly = true;
             box.ShortcutsEnabled = false;
-            box.BackColor = Color.White;
+            Theme.Input(box);
             box.ForeColor = Theme.Text;
             box.BorderStyle = BorderStyle.FixedSingle;
             box.Cursor = Cursors.Hand;
@@ -561,46 +557,53 @@ namespace Jietu
             Activate();
         }
 
+        protected override void OnPaintBackground(PaintEventArgs e)
+        {
+            Graphics g = e.Graphics;
+            g.Clear(Theme.Page);
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            var header = new Rectangle(0, 0, ClientSize.Width, HeaderHeight);
+            using (var brush = new System.Drawing.Drawing2D.LinearGradientBrush(header, Color.FromArgb(18, 92, 196), Color.FromArgb(98, 54, 210), 0f))
+            {
+                g.FillRectangle(brush, header);
+            }
+
+            Region clip = g.Clip;
+            g.SetClip(header);
+            using (var glow = new SolidBrush(Color.FromArgb(46, 0, 220, 255)))
+            using (var glow2 = new SolidBrush(Color.FromArgb(40, 255, 120, 220)))
+            using (var ring = new Pen(Color.FromArgb(50, 255, 255, 255), 1.2f))
+            {
+                g.FillEllipse(glow, ClientSize.Width - 190, -70, 220, 220);
+                g.FillEllipse(glow2, ClientSize.Width - 300, 30, 150, 150);
+                g.DrawEllipse(ring, ClientSize.Width - 150, -40, 120, 120);
+                g.DrawEllipse(ring, ClientSize.Width - 110, 0, 50, 50);
+            }
+
+            g.Clip = clip;
+            using (var edge = Theme.AccentBrush(new RectangleF(0, HeaderHeight - 2, ClientSize.Width, 2)))
+            {
+                g.FillRectangle(edge, 0, HeaderHeight - 2, ClientSize.Width, 2);
+            }
+
+            using (var path = Theme.Round(HelpCard, 10))
+            using (var fill = new SolidBrush(Theme.Surface))
+            using (var pen = new Pen(Theme.Line))
+            {
+                g.FillPath(fill, path);
+                g.DrawPath(pen, path);
+            }
+
+            using (var bar = Theme.AccentBrush(new RectangleF(HelpCard.X, HelpCard.Y + 14, 3, HelpCard.Height - 28)))
+            {
+                g.FillRectangle(bar, HelpCard.X, HelpCard.Y + 14, 3, HelpCard.Height - 28);
+            }
+        }
+
         void ExitApp()
         {
             _exit = true;
             Close();
-        }
-
-        static Icon CreateIcon()
-        {
-            using (var bitmap = new Bitmap(32, 32, System.Drawing.Imaging.PixelFormat.Format32bppArgb))
-            {
-                using (var g = Graphics.FromImage(bitmap))
-                {
-                    g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-                    g.Clear(Color.Transparent);
-                    using (var brush = new SolidBrush(Theme.Accent))
-                    {
-                        g.FillRectangle(brush, 1, 1, 30, 30);
-                    }
-
-                    using (var pen = new Pen(Color.White, 2f))
-                    {
-                        g.DrawRectangle(pen, 8, 6, 16, 11);
-                        g.DrawLine(pen, 16, 17, 16, 25);
-                        g.DrawLine(pen, 12, 22, 20, 22);
-                    }
-                }
-
-                IntPtr handle = bitmap.GetHicon();
-                try
-                {
-                    using (var icon = Icon.FromHandle(handle))
-                    {
-                        return (Icon)icon.Clone();
-                    }
-                }
-                finally
-                {
-                    NativeMethods.DestroyIcon(handle);
-                }
-            }
         }
     }
 }
