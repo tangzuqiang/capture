@@ -27,7 +27,10 @@ if ($Print) {
 }
 
 $new = "$major.$minor.$($patch + 1)"
-Copy-Item -LiteralPath $proj -Destination "$proj.releasebak" -Force
+
+# 备份放临时目录，避免版本备份文件被 git add -A 带进仓库
+$backup = Join-Path $env:TEMP 'Shiying.csproj.releasebak'
+Copy-Item -LiteralPath $proj -Destination $backup -Force
 
 $text = [regex]::Replace($text, '<Version>[\d.]+</Version>', "<Version>$new</Version>")
 [IO.File]::WriteAllText($proj, $text, (New-Object System.Text.UTF8Encoding($false)))

@@ -2,7 +2,7 @@
 setlocal
 cd /d "%~dp0"
 
-rem ==================== 发布目标（只改这几行，不用另外配置）====================
+rem ============= release target: edit these lines only =============
 set "PUB_HOST=root@111.230.247.111"
 set "PUB_DIR=/usr/share/nginx/html/shiying"
 set "GIT_REMOTE=origin"
@@ -57,22 +57,22 @@ if errorlevel 1 echo !! git push FAILED - please push manually
 set "COMMITTED=1"
 
 echo [6/6] upload to %PUB_HOST%
-ssh -o StrictHostKeyChecking=accept-new %PUB_HOST% "mkdir -p %PUB_DIR%"
+ssh -n -o BatchMode=yes -o StrictHostKeyChecking=accept-new %PUB_HOST% "mkdir -p %PUB_DIR%"
 if errorlevel 1 goto :fail
 set "UPFAIL="
 for %%f in ("dist\*.exe") do (
   echo     upload %%~nxf
-  scp "%%~ff" %PUB_HOST%:%PUB_DIR%/
+  scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new "%%~ff" %PUB_HOST%:%PUB_DIR%/
   if errorlevel 1 set "UPFAIL=1"
 )
 if defined UPFAIL (
   echo !! upload FAILED
   goto :fail
 )
-ssh %PUB_HOST% "ls -lh %PUB_DIR%"
+ssh -n -o BatchMode=yes %PUB_HOST% "ls -lh %PUB_DIR%"
 if errorlevel 1 goto :fail
 
-del /q "Shiying.csproj.releasebak" 2>nul
+del /q "%TEMP%\Shiying.csproj.releasebak" 2>nul
 echo.
 echo DONE - Shiying v%NEWVER% published
 exit /b 0
@@ -83,6 +83,6 @@ if defined COMMITTED (
   echo !! FAILED after commit - Shiying.csproj stays at v%NEWVER%
 ) else (
   echo !! FAILED - rolling back version
-  if exist "Shiying.csproj.releasebak" move /y "Shiying.csproj.releasebak" "Shiying.csproj" >nul
+  if exist "%TEMP%\Shiying.csproj.releasebak" copy /y "%TEMP%\Shiying.csproj.releasebak" "Shiying.csproj" >nul
 )
 exit /b 1
