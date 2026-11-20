@@ -25,6 +25,8 @@ namespace Jietu
             failed += RunCase("more marks", TestMoreMarks);
             failed += RunCase("toolbar tools", TestToolbarTools);
             failed += RunCase("ocr text", TestOcr);
+            failed += RunCase("paddle ocr", TestPaddleOcr);
+            failed += RunCase("llm translator", TestTranslator);
             if (failed == 0)
             {
                 Console.WriteLine("SELFTEST OK");
@@ -469,7 +471,7 @@ namespace Jietu
             using (var bar = new ToolbarForm())
             {
                 bar.CreateControl();
-                if (bar.RectButton == null || bar.EllipseButton == null || bar.ArrowButton == null || bar.PenButton == null || bar.DoodleButton == null || bar.TextButton == null || bar.PinButton == null || bar.UndoButton == null)
+                if (bar.RectButton == null || bar.EllipseButton == null || bar.ArrowButton == null || bar.PenButton == null || bar.DoodleButton == null || bar.TextButton == null || bar.PinButton == null || bar.UndoButton == null || bar.OcrButton == null || bar.TranslateButton == null)
                 {
                     return "missing tool button";
                 }
@@ -556,6 +558,126 @@ namespace Jietu
             SendMessage(control.Handle, 0x0202, IntPtr.Zero, IntPtr.Zero);
         }
 
+        static string TestTranslator()
+        {
+#if NET
+            var listener = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
+            listener.Start();
+            int port = ((System.Net.IPEndPoint)listener.LocalEndpoint).Port;
+            string seen = "";
+            var server = System.Threading.Tasks.Task.Run(() =>
+            {
+                using (System.Net.Sockets.TcpClient client = listener.AcceptTcpClient())
+                using (System.Net.Sockets.NetworkStream stream = client.GetStream())
+                {
+                    var buffer = new byte[65536];
+                    var request = new MemoryStream();
+                    int headerEnd = -1;
+                    int length = 0;
+                    while (true)
+                    {
+                        int read = stream.Read(buffer, 0, buffer.Length);
+                        if (read <= 0)
+                        {
+                            break;
+                        }
+
+                        request.Write(buffer, 0, read);
+                        string sofar = System.Text.Encoding.UTF8.GetString(request.ToArray());
+                        if (headerEnd < 0)
+                        {
+                            headerEnd = sofar.IndexOf("\r\n\r\n", StringComparison.Ordinal);
+                            if (headerEnd >= 0)
+                            {
+                                var match = System.Text.RegularExpressions.Regex.Match(sofar, "Content-Length:\\s*(\\d+)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                                length = match.Success ? int.Parse(match.Groups[1].Value) : 0;
+                            }
+                        }
+
+                        if (headerEnd >= 0 && request.Length >= headerEnd + 4 + length)
+                        {
+                            break;
+                        }
+                    }
+
+                    seen = System.Text.Encoding.UTF8.GetString(request.ToArray());
+                    string body = "{\"choices\":[{\"message\":{\"role\":\"assistant\",\"content\":\"<think>x</think>Hello,\\nworld\"}}]}";
+                    byte[] bytes = System.Text.Encoding.UTF8.GetBytes(body);
+                    string head = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: " + bytes.Length + "\r\nConnection: close\r\n\r\n";
+                    byte[] headBytes = System.Text.Encoding.ASCII.GetBytes(head);
+                    stream.Write(headBytes, 0, headBytes.Length);
+                    stream.Write(bytes, 0, bytes.Length);
+                }
+            });
+
+            try
+            {
+                var config = new LlmConfig();
+                config.BaseUrl = "http://127.0.0.1:" + port + "/v1/";
+                config.ApiKey = "sk-local";
+                config.Model = "fake-model";
+                config.Target = "en";
+                string result = LlmTranslator.Translate("你好\n世界", config);
+                server.Wait(5000);
+                if (result != "Hello,\r\nworld")
+                {
+                    return "result [" + result + "]";
+                }
+
+                if (!seen.StartsWith("POST /v1/chat/completions", StringComparison.Ordinal))
+                {
+                    return "path " + seen.Split('\n')[0];
+                }
+
+                if (seen.IndexOf("Bearer sk-local", StringComparison.Ordinal) < 0 || seen.IndexOf("\"model\":\"fake-model\"", StringComparison.Ordinal) < 0)
+                {
+                    return "request " + seen;
+                }
+            }
+            finally
+            {
+                listener.Stop();
+            }
+#endif
+            return null;
+        }
+
+        static string TestPaddleOcr()
+        {
+#if NET
+            if (!PaddleOcr.ModelsPresent)
+            {
+                return "models missing in " + PaddleOcr.ModelFolder;
+            }
+
+            using (var bitmap = new Bitmap(640, 160, PixelFormat.Format24bppRgb))
+            {
+                bitmap.SetResolution(96, 96);
+                using (Graphics g = Graphics.FromImage(bitmap))
+                using (var big = new Font("Microsoft YaHei UI", 28f, FontStyle.Regular, GraphicsUnit.Pixel))
+                using (var small = new Font("Microsoft YaHei UI", 14f, FontStyle.Regular, GraphicsUnit.Pixel))
+                using (var brush = new SolidBrush(Color.Black))
+                {
+                    g.Clear(Color.White);
+                    g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
+                    g.DrawString("截图文字识别 OCR 2026", big, brush, 20, 24);
+                    g.DrawString("复制后可以翻译成英文", small, brush, 20, 100);
+                }
+
+                string text = PaddleOcr.Recognize(bitmap) ?? "";
+                string compact = text.Replace(" ", "");
+                if (compact.IndexOf("截图文字识别", StringComparison.Ordinal) < 0
+                    || compact.IndexOf("2026", StringComparison.Ordinal) < 0
+                    || compact.IndexOf("翻译成英文", StringComparison.Ordinal) < 0
+                    || text.IndexOf('\n') < 0)
+                {
+                    return "paddle [" + text + "]";
+                }
+            }
+#endif
+            return null;
+        }
+
         static bool AnyPixel(Bitmap bitmap, Rectangle area, Func<Color, bool> test)
         {
             int x0 = Math.Max(0, area.Left);
@@ -588,6 +710,11 @@ namespace Jietu
             Keys gestureRgb = AppSettings.GestureRgb;
             Keys gestureWeb = AppSettings.GestureWeb;
             string saveFolder = AppSettings.SaveFolder;
+            string llmPreset = AppSettings.LlmPreset;
+            string llmBaseUrl = AppSettings.LlmBaseUrl;
+            string llmModel = AppSettings.LlmModel;
+            string llmApiKey = AppSettings.LlmApiKey;
+            string translateTarget = AppSettings.TranslateTarget;
             string path = Path.Combine(Path.GetTempPath(), "jietu-settings-" + Guid.NewGuid().ToString("N") + ".txt");
             try
             {
@@ -653,6 +780,34 @@ namespace Jietu
                 {
                     return "folder " + AppSettings.SaveFolder;
                 }
+
+                AppSettings.LlmPreset = "DeepSeek";
+                AppSettings.LlmBaseUrl = "https://api.deepseek.com/v1";
+                AppSettings.LlmModel = "deepseek-chat";
+                AppSettings.LlmApiKey = "sk-test=密钥";
+                AppSettings.TranslateTarget = "en";
+                AppSettings.Save(path);
+                string stored = File.ReadAllText(path);
+                if (stored.Contains("sk-test") || !stored.Contains("llmApiKey=dpapi:"))
+                {
+                    return "api key stored in plain text";
+                }
+
+                AppSettings.LlmPreset = "";
+                AppSettings.LlmBaseUrl = "";
+                AppSettings.LlmModel = "";
+                AppSettings.LlmApiKey = "";
+                AppSettings.TranslateTarget = "auto";
+                AppSettings.Load(path);
+                if (AppSettings.LlmPreset != "DeepSeek" || AppSettings.LlmBaseUrl != "https://api.deepseek.com/v1" || AppSettings.LlmModel != "deepseek-chat" || AppSettings.TranslateTarget != "en")
+                {
+                    return "llm settings " + AppSettings.LlmPreset + " " + AppSettings.LlmBaseUrl + " " + AppSettings.LlmModel + " " + AppSettings.TranslateTarget;
+                }
+
+                if (AppSettings.LlmApiKey != "sk-test=密钥")
+                {
+                    return "api key [" + AppSettings.LlmApiKey + "]";
+                }
             }
             finally
             {
@@ -661,6 +816,11 @@ namespace Jietu
                 AppSettings.GestureRgb = gestureRgb;
                 AppSettings.GestureWeb = gestureWeb;
                 AppSettings.SaveFolder = saveFolder;
+                AppSettings.LlmPreset = llmPreset;
+                AppSettings.LlmBaseUrl = llmBaseUrl;
+                AppSettings.LlmModel = llmModel;
+                AppSettings.LlmApiKey = llmApiKey;
+                AppSettings.TranslateTarget = translateTarget;
                 try
                 {
                     File.Delete(path);

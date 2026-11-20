@@ -164,7 +164,8 @@ namespace Jietu
             _toolbar.DoodleButton.Click += (s, e) => SetTool(AnnotateTool.Doodle);
             _toolbar.TextButton.Click += (s, e) => SetTool(AnnotateTool.Text);
             _toolbar.PinButton.Click += (s, e) => SetTool(AnnotateTool.Pin);
-            _toolbar.OcrButton.Click += (s, e) => RecognizeText();
+            _toolbar.OcrButton.Click += (s, e) => RecognizeText(false);
+            _toolbar.TranslateButton.Click += (s, e) => RecognizeText(true);
             _toolbar.UndoButton.Click += (s, e) => Undo();
             _toolbar.InkChanged += (s, e) => SyncEditedText();
             _toolbar.PhraseChanged += (s, e) => SyncEditedText();
@@ -1078,7 +1079,7 @@ namespace Jietu
             Invalidate();
         }
 
-        void RecognizeText()
+        void RecognizeText(bool translate)
         {
             if (_busy || !_hasSel)
             {
@@ -1118,7 +1119,7 @@ namespace Jietu
 
                 try
                 {
-                    BeginInvoke(new Action(() => FinishRecognize(done)));
+                    BeginInvoke(new Action(() => FinishRecognize(done, translate)));
                 }
                 catch (InvalidOperationException)
                 {
@@ -1126,7 +1127,7 @@ namespace Jietu
             });
         }
 
-        void FinishRecognize(Task<string> task)
+        void FinishRecognize(Task<string> task, bool translate)
         {
             _busy = false;
             if (IsDisposed)
@@ -1155,6 +1156,13 @@ namespace Jietu
                 return;
             }
 
+            if (translate)
+            {
+                ShowNote("识别完成，正在翻译", 1800);
+                ShowOcr(text, true);
+                return;
+            }
+
             try
             {
                 ScreenGrab.CopyText(text);
@@ -1171,10 +1179,10 @@ namespace Jietu
                 }
             }
 
-            ShowOcr(text);
+            ShowOcr(text, false);
         }
 
-        void ShowOcr(string text)
+        void ShowOcr(string text, bool translate)
         {
             if (IsDisposed)
             {
@@ -1186,7 +1194,7 @@ namespace Jietu
                 _ocrForm.Close();
             }
 
-            _ocrForm = new OcrForm(text);
+            _ocrForm = new OcrForm(text, translate);
             _ocrForm.Show(this);
             Rectangle monitor = Screen.FromControl(this).WorkingArea;
             int x = monitor.Left + Math.Max(0, (monitor.Width - _ocrForm.Width) / 2);

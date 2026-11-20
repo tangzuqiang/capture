@@ -82,7 +82,7 @@ namespace Jietu
             help.Size = new Size(504, 168);
             help.Text =
                 "1. 快捷键会截取鼠标所在的那块屏幕，拖出一个矩形。\r\n" +
-                "2. 框选后用图标画框、圆圈、箭头、画笔、涂鸦、文字和钉，悬停可看名称。\r\n" +
+                "2. 框选后可用图标标注、识别文字或用大模型翻译，悬停可看名称。\r\n" +
                 "3. 鼠标停在颜色上，按设置的快捷键复制 RGB 或 #色值。\r\n" +
                 "4. 纵向向下滚，横向向右滚，把多屏拼成一张图。\r\n" +
                 "5. 滚动过程中按 Esc 提前结束，到边缘会自动停下。\r\n\r\n" +
@@ -114,6 +114,12 @@ namespace Jietu
                 AppSettings.Save();
             };
 
+            var modelButton = Theme.Button("翻译模型配置", false);
+            modelButton.AutoSize = false;
+            modelButton.Location = new Point(392, 455);
+            modelButton.Size = new Size(140, 34);
+            modelButton.Click += (s, e) => ModelForm.Edit(this);
+
             Controls.Add(title);
             Controls.Add(sub);
             Controls.Add(pickFolder);
@@ -131,6 +137,7 @@ namespace Jietu
             Controls.Add(help);
             Controls.Add(paceLabel);
             Controls.Add(pace);
+            Controls.Add(modelButton);
 
             _tray = new NotifyIcon();
             _tray.Icon = Icon;
@@ -139,6 +146,7 @@ namespace Jietu
             var menu = new ContextMenuStrip();
             menu.Items.Add("开始截图", null, (s, e) => OverlayForm.Run(this));
             menu.Items.Add("显示主窗口", null, (s, e) => ShowMain());
+            menu.Items.Add("翻译模型配置", null, (s, e) => ModelForm.Edit(Visible ? this : null));
             menu.Items.Add("退出", null, (s, e) => ExitApp());
             _tray.ContextMenuStrip = menu;
             _tray.DoubleClick += (s, e) => OverlayForm.Run(this);

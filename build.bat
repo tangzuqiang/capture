@@ -28,6 +28,9 @@ if not exist bin mkdir bin
   src\Theme.cs ^
   src\Markup.cs ^
   src\OcrText.cs ^
+  src\PaddleOcr.cs ^
+  src\LlmTranslator.cs ^
+  src\ModelForm.cs ^
   src\OcrForm.cs ^
   src\ScreenGrab.cs ^
   src\ImageStitcher.cs ^

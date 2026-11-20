@@ -19,6 +19,16 @@ namespace Jietu
         public static Keys GestureRgb = Keys.Control | Keys.Alt | Keys.C;
         public static Keys GestureWeb = Keys.Control | Keys.Alt | Keys.X;
         public static string SaveFolder = "";
+        public static string LlmPreset = "";
+        public static string LlmBaseUrl = "";
+        public static string LlmApiKey = "";
+        public static string LlmModel = "";
+        public static string TranslateTarget = "auto";
+
+        public static bool LlmConfigured
+        {
+            get { return LlmBaseUrl.Length > 0 && LlmModel.Length > 0; }
+        }
 
         public static string DefaultPath
         {
@@ -99,6 +109,26 @@ namespace Jietu
                     {
                         SaveFolder = value;
                     }
+                    else if (key == "llmPreset")
+                    {
+                        LlmPreset = value;
+                    }
+                    else if (key == "llmBaseUrl")
+                    {
+                        LlmBaseUrl = value;
+                    }
+                    else if (key == "llmModel")
+                    {
+                        LlmModel = value;
+                    }
+                    else if (key == "llmApiKey")
+                    {
+                        LlmApiKey = Unprotect(value);
+                    }
+                    else if (key == "translateTarget")
+                    {
+                        TranslateTarget = value.Length > 0 ? value : "auto";
+                    }
                     else if (key == "gesture" || key == "gestureRgb" || key == "gestureWeb")
                     {
                         Keys gesture;
@@ -142,6 +172,11 @@ namespace Jietu
                     + "\r\ngestureRgb=" + GestureRgb
                     + "\r\ngestureWeb=" + GestureWeb
                     + "\r\nsaveFolder=" + SaveFolder
+                    + "\r\nllmPreset=" + OneLine(LlmPreset)
+                    + "\r\nllmBaseUrl=" + OneLine(LlmBaseUrl)
+                    + "\r\nllmModel=" + OneLine(LlmModel)
+                    + "\r\nllmApiKey=" + Protect(OneLine(LlmApiKey))
+                    + "\r\ntranslateTarget=" + OneLine(TranslateTarget)
                     + "\r\n";
                 string temp = path + ".tmp";
                 File.WriteAllText(temp, body, Encoding.UTF8);
@@ -156,6 +191,40 @@ namespace Jietu
             }
             catch
             {
+            }
+        }
+
+        static string OneLine(string value)
+        {
+            return (value ?? "").Replace("\r", "").Replace("\n", "").Trim();
+        }
+
+        static string Protect(string secret)
+        {
+            if (string.IsNullOrEmpty(secret))
+            {
+                return "";
+            }
+
+            byte[] sealedBytes = NativeMethods.ProtectBytes(Encoding.UTF8.GetBytes(secret));
+            return sealedBytes == null ? "" : "dpapi:" + Convert.ToBase64String(sealedBytes);
+        }
+
+        static string Unprotect(string stored)
+        {
+            if (string.IsNullOrEmpty(stored) || !stored.StartsWith("dpapi:", StringComparison.Ordinal))
+            {
+                return "";
+            }
+
+            try
+            {
+                byte[] plain = NativeMethods.UnprotectBytes(Convert.FromBase64String(stored.Substring(6)));
+                return plain == null ? "" : Encoding.UTF8.GetString(plain);
+            }
+            catch (FormatException)
+            {
+                return "";
             }
         }
 

@@ -22,6 +22,11 @@ namespace Jietu
                 Environment.Exit(RunLogged("bin\\uitest.log", UiTest.Run));
             }
 
+            if (args != null && args.Length == 3 && args[0] == "--ocr")
+            {
+                Environment.Exit(RunOcrFile(args[1], args[2]));
+            }
+
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             Application.ThreadException += (s, e) =>
@@ -63,6 +68,27 @@ namespace Jietu
             }
 
             return code;
+        }
+
+        static int RunOcrFile(string imagePath, string outputPath)
+        {
+            try
+            {
+                var watch = System.Diagnostics.Stopwatch.StartNew();
+                string text;
+                using (var bitmap = new System.Drawing.Bitmap(imagePath))
+                {
+                    text = OcrText.Recognize(bitmap);
+                }
+
+                File.WriteAllText(outputPath, text + "\r\n\r\n[" + watch.ElapsedMilliseconds + " ms]\r\n", Encoding.UTF8);
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                File.WriteAllText(outputPath, ex.ToString(), Encoding.UTF8);
+                return 1;
+            }
         }
 
         static bool HasArg(string[] args, string name)

@@ -16,6 +16,10 @@ if not exist "%ISCC%" (
   exit /b 1
 )
 
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\fetch-models.ps1"
+if errorlevel 1 exit /b 1
+
+if exist "%~dp0publish\win-x64" rmdir /s /q "%~dp0publish\win-x64"
 "%DOTNET%" publish "%~dp0Jietu.csproj" -c Release -o "%~dp0publish\win-x64"
 if errorlevel 1 exit /b 1
 

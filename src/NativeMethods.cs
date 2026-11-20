@@ -91,6 +91,70 @@ namespace Jietu
         [DllImport("user32.dll")]
         public static extern bool DestroyIcon(IntPtr hIcon);
 
+        [StructLayout(LayoutKind.Sequential)]
+        struct DataBlob
+        {
+            public int Size;
+            public IntPtr Data;
+        }
+
+        const int CRYPTPROTECT_UI_FORBIDDEN = 0x1;
+
+        [DllImport("crypt32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        static extern bool CryptProtectData(ref DataBlob dataIn, string description, IntPtr entropy, IntPtr reserved, IntPtr prompt, int flags, ref DataBlob dataOut);
+
+        [DllImport("crypt32.dll", SetLastError = true)]
+        static extern bool CryptUnprotectData(ref DataBlob dataIn, IntPtr description, IntPtr entropy, IntPtr reserved, IntPtr prompt, int flags, ref DataBlob dataOut);
+
+        [DllImport("kernel32.dll")]
+        static extern IntPtr LocalFree(IntPtr handle);
+
+        public static byte[] ProtectBytes(byte[] plain)
+        {
+            return RunDpapi(plain, true);
+        }
+
+        public static byte[] UnprotectBytes(byte[] sealedBytes)
+        {
+            return RunDpapi(sealedBytes, false);
+        }
+
+        static byte[] RunDpapi(byte[] input, bool protect)
+        {
+            if (input == null || input.Length == 0)
+            {
+                return null;
+            }
+
+            var dataIn = new DataBlob();
+            var dataOut = new DataBlob();
+            dataIn.Size = input.Length;
+            dataIn.Data = Marshal.AllocHGlobal(input.Length);
+            try
+            {
+                Marshal.Copy(input, 0, dataIn.Data, input.Length);
+                bool ok = protect
+                    ? CryptProtectData(ref dataIn, "Jietu", IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, CRYPTPROTECT_UI_FORBIDDEN, ref dataOut)
+                    : CryptUnprotectData(ref dataIn, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, CRYPTPROTECT_UI_FORBIDDEN, ref dataOut);
+                if (!ok || dataOut.Data == IntPtr.Zero)
+                {
+                    return null;
+                }
+
+                var result = new byte[dataOut.Size];
+                Marshal.Copy(dataOut.Data, result, 0, dataOut.Size);
+                return result;
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(dataIn.Data);
+                if (dataOut.Data != IntPtr.Zero)
+                {
+                    LocalFree(dataOut.Data);
+                }
+            }
+        }
+
         public static void MakeDpiAware()
         {
             if (!SetProcessDpiAwarenessContext(DpiPerMonitorV2))

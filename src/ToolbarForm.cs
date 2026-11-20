@@ -16,6 +16,7 @@ namespace Jietu
         Pin,
         Undo,
         Ocr,
+        Translate,
         Copy,
         Save,
         Down,
@@ -44,6 +45,7 @@ namespace Jietu
         public IconButton PinButton;
         public IconButton UndoButton;
         public IconButton OcrButton;
+        public IconButton TranslateButton;
         public IconButton CopyButton;
         public IconButton SaveButton;
         public IconButton VerticalButton;
@@ -104,6 +106,7 @@ namespace Jietu
             PinButton = MakeIcon(ToolGlyph.Pin, "钉");
             UndoButton = MakeIcon(ToolGlyph.Undo, "撤回");
             OcrButton = MakeIcon(ToolGlyph.Ocr, "识别文字");
+            TranslateButton = MakeIcon(ToolGlyph.Translate, "翻译");
             CopyButton = MakeIcon(ToolGlyph.Copy, "复制");
             SaveButton = MakeIcon(ToolGlyph.Save, "保存");
             VerticalButton = MakeIcon(ToolGlyph.Down, "纵向长图");
@@ -122,6 +125,7 @@ namespace Jietu
             tools.Controls.Add(UndoButton);
             tools.Controls.Add(Sep(18));
             tools.Controls.Add(OcrButton);
+            tools.Controls.Add(TranslateButton);
             tools.Controls.Add(CopyButton);
             tools.Controls.Add(SaveButton);
             tools.Controls.Add(VerticalButton);
@@ -239,6 +243,7 @@ namespace Jietu
             Tip(tip, PinButton, "钉");
             Tip(tip, UndoButton, "撤回");
             Tip(tip, OcrButton, "识别文字");
+            Tip(tip, TranslateButton, "识别并翻译");
             Tip(tip, CopyButton, "复制");
             Tip(tip, SaveButton, "保存");
             Tip(tip, VerticalButton, "纵向长图");
@@ -579,6 +584,16 @@ namespace Jietu
                 g.DrawLine(pen, 11, 12, 17, 12);
                 g.DrawLine(pen, 11, 16, 17, 16);
                 g.DrawEllipse(pen, 16, 16, 8, 8);
+            }
+            else if (glyph == ToolGlyph.Translate)
+            {
+                g.DrawLine(pen, 7, 10, 15, 10);
+                g.DrawLine(pen, 11, 8, 11, 10);
+                g.DrawBezier(pen, 13.5f, 10, 13, 14, 10.5f, 16.5f, 7.5f, 18);
+                g.DrawBezier(pen, 9, 12, 10, 15, 12.5f, 17, 15, 18);
+                g.DrawLine(pen, 16.5f, 25, 20.5f, 15);
+                g.DrawLine(pen, 20.5f, 15, 24.5f, 25);
+                g.DrawLine(pen, 18, 21.5f, 23, 21.5f);
             }
             else if (glyph == ToolGlyph.Copy)
             {

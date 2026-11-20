@@ -25,6 +25,26 @@ namespace Jietu
             }
 
 #if NET
+            if (PaddleOcr.ModelsPresent)
+            {
+                try
+                {
+                    return PaddleOcr.Recognize(bitmap);
+                }
+                catch (Exception)
+                {
+                }
+            }
+
+            return RecognizeWindows(bitmap);
+#else
+            throw new NotSupportedException("文字识别需要使用安装包里的程序。");
+#endif
+        }
+
+#if NET
+        public static string RecognizeWindows(Bitmap bitmap)
+        {
             Bitmap fitted = Fit(bitmap);
             Bitmap source = fitted ?? bitmap;
             try
@@ -45,12 +65,8 @@ namespace Jietu
                     fitted.Dispose();
                 }
             }
-#else
-            throw new NotSupportedException("文字识别需要使用安装包里的程序。");
-#endif
         }
 
-#if NET
         static async Task<string> RecognizeCore(byte[] pixels, int width, int height)
         {
             OcrEngine engine = OcrEngine.TryCreateFromUserProfileLanguages();
