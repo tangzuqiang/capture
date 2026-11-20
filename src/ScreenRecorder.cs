@@ -5,56 +5,23 @@ using System.Drawing;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
-#if NET
-using System.Runtime.InteropServices.WindowsRuntime;
+using Windows.Foundation;
 using Windows.Graphics.Capture;
 using Windows.Graphics.DirectX;
 using Windows.Graphics.DirectX.Direct3D11;
 using Windows.Media.Core;
 using Windows.Media.MediaProperties;
 using Windows.Media.Transcoding;
+using Windows.Security.Cryptography;
+using Windows.Storage;
 using Windows.Storage.Streams;
+#if NET
 using WinRT;
 #endif
+using Size = System.Drawing.Size;
 
 namespace Jietu
 {
-#if !NET
-    sealed class ScreenRecorder
-    {
-        public string Path
-        {
-            get { return ""; }
-        }
-
-        public Size FrameSize
-        {
-            get { return Size.Empty; }
-        }
-
-        public string AudioMissing
-        {
-            get { return null; }
-        }
-
-        public static Rectangle Fit(Rectangle region)
-        {
-            region.Width &= ~1;
-            region.Height &= ~1;
-            return region;
-        }
-
-        public static Task<ScreenRecorder> StartAsync(Rectangle region, string path, bool systemAudio, bool microphone)
-        {
-            throw new NotSupportedException("录屏需要使用安装包里的程序。");
-        }
-
-        public Task StopAsync()
-        {
-            return Task.FromResult(0);
-        }
-    }
-#else
     sealed class ScreenRecorder
     {
         const int MaxFps = 60;
@@ -275,7 +242,7 @@ namespace Jietu
         GraphicsCaptureItem _item;
         Direct3D11CaptureFramePool _pool;
         GraphicsCaptureSession _session;
-        FileStream _file;
+        IRandomAccessStream _stream;
         Task _encoding;
         TimeSpan _nextDue;
         bool _hasFrame;
@@ -384,17 +351,16 @@ namespace Jietu
             }
 
             Directory.CreateDirectory(System.IO.Path.GetDirectoryName(_path));
-            _file = new FileStream(_path, FileMode.Create, FileAccess.ReadWrite, FileShare.Read);
-            IRandomAccessStream stream = _file.AsRandomAccessStream();
+            _stream = await Await(FileRandomAccessStream.OpenAsync(_path, FileAccessMode.ReadWrite, StorageOpenOptions.AllowOnlyReaders, FileOpenDisposition.CreateAlways));
             var transcoder = new MediaTranscoder();
             transcoder.HardwareAccelerationEnabled = true;
 
             bool hevcFirst = _width > 4096 || _height > 4096;
-            PrepareTranscodeResult prepared = await transcoder.PrepareMediaStreamSourceTranscodeAsync(CreateSource(), stream, CreateProfile(hevcFirst));
+            PrepareTranscodeResult prepared = await Await(transcoder.PrepareMediaStreamSourceTranscodeAsync(CreateSource(), _stream, CreateProfile(hevcFirst)));
             if (!prepared.CanTranscode)
             {
-                _file.SetLength(0);
-                prepared = await transcoder.PrepareMediaStreamSourceTranscodeAsync(CreateSource(), stream, CreateProfile(!hevcFirst));
+                _stream.Size = 0;
+                prepared = await Await(transcoder.PrepareMediaStreamSourceTranscodeAsync(CreateSource(), _stream, CreateProfile(!hevcFirst)));
             }
 
             if (!prepared.CanTranscode)
@@ -402,7 +368,7 @@ namespace Jietu
                 throw new InvalidOperationException("系统视频编码器不可用：" + prepared.FailureReason);
             }
 
-            _encoding = prepared.TranscodeAsync().AsTask();
+            _encoding = Await(prepared.TranscodeAsync());
         }
 
         public async Task StopAsync()
@@ -459,7 +425,7 @@ namespace Jietu
             MediaStreamSource source;
             if (_audio != null)
             {
-                var pcm = AudioEncodingProperties.CreatePcm(AudioCapture.Rate, AudioCapture.Channels, 16);
+                var pcm = AudioEncodingProperties.CreatePcm((uint)_capture.Rate, AudioCapture.Channels, 16);
                 source = new MediaStreamSource(new VideoStreamDescriptor(input), new AudioStreamDescriptor(pcm));
             }
             else
@@ -493,7 +459,7 @@ namespace Jietu
             video.PixelAspectRatio.Numerator = 1;
             video.PixelAspectRatio.Denominator = 1;
             profile.Video = video;
-            profile.Audio = _audio != null ? AudioEncodingProperties.CreateAac(AudioCapture.Rate, AudioCapture.Channels, 192000) : null;
+            profile.Audio = _audio != null ? AudioEncodingProperties.CreateAac((uint)_capture.Rate, AudioCapture.Channels, 192000) : null;
             return profile;
         }
 
@@ -528,7 +494,7 @@ namespace Jietu
             {
                 Make = () =>
                 {
-                    MediaStreamSample sample = MediaStreamSample.CreateFromBuffer(pcm.AsBuffer(), time);
+                    MediaStreamSample sample = MediaStreamSample.CreateFromBuffer(CryptographicBuffer.CreateFromByteArray(pcm), time);
                     sample.Duration = duration;
                     return sample;
                 }
@@ -598,7 +564,7 @@ namespace Jietu
             }
 
             IntPtr copy = NewTexture();
-            ((delegate* unmanaged<IntPtr, IntPtr, IntPtr, void>)Slot(_context, 47))(_context, copy, _lastTexture);
+            ((delegate* unmanaged[Stdcall]<IntPtr, IntPtr, IntPtr, void>)Slot(_context, 47))(_context, copy, _lastTexture);
             Enqueue(copy, now);
         }
 
@@ -639,7 +605,7 @@ namespace Jietu
 
             IntPtr target = NewTexture();
             var box = new Box { Left = (uint)left, Top = (uint)top, Front = 0, Right = (uint)right, Bottom = (uint)bottom, Back = 1 };
-            ((delegate* unmanaged<IntPtr, IntPtr, uint, uint, uint, uint, IntPtr, uint, Box*, void>)Slot(_context, 46))(_context, target, 0, 0, 0, 0, source, 0, &box);
+            ((delegate* unmanaged[Stdcall]<IntPtr, IntPtr, uint, uint, uint, uint, IntPtr, uint, Box*, void>)Slot(_context, 46))(_context, target, 0, 0, 0, 0, source, 0, &box);
             return target;
         }
 
@@ -657,7 +623,7 @@ namespace Jietu
                 BindFlags = 0x8 | 0x20
             };
             IntPtr texture;
-            Check(((delegate* unmanaged<IntPtr, TextureDesc*, IntPtr, IntPtr*, int>)Slot(_device, 5))(_device, &desc, IntPtr.Zero, &texture));
+            Check(((delegate* unmanaged[Stdcall]<IntPtr, TextureDesc*, IntPtr, IntPtr*, int>)Slot(_device, 5))(_device, &desc, IntPtr.Zero, &texture));
             return texture;
         }
 
@@ -674,7 +640,7 @@ namespace Jietu
             IntPtr guard = Query(_context, IID_ID3D10Multithread);
             try
             {
-                ((delegate* unmanaged<IntPtr, int, int>)Slot(guard, 5))(guard, 1);
+                ((delegate* unmanaged[Stdcall]<IntPtr, int, int>)Slot(guard, 5))(guard, 1);
             }
             finally
             {
@@ -688,7 +654,7 @@ namespace Jietu
                 Check(CreateDirect3D11DeviceFromDXGIDevice(dxgi, out inspectable));
                 try
                 {
-                    _graphicsDevice = MarshalInterface<IDirect3DDevice>.FromAbi(inspectable);
+                    _graphicsDevice = FromAbi<IDirect3DDevice>(inspectable);
                 }
                 finally
                 {
@@ -723,10 +689,10 @@ namespace Jietu
             {
                 Guid itemIid = IID_IGraphicsCaptureItem;
                 IntPtr raw;
-                Check(((delegate* unmanaged<IntPtr, IntPtr, Guid*, IntPtr*, int>)Slot(factory, 4))(factory, monitor, &itemIid, &raw));
+                Check(((delegate* unmanaged[Stdcall]<IntPtr, IntPtr, Guid*, IntPtr*, int>)Slot(factory, 4))(factory, monitor, &itemIid, &raw));
                 try
                 {
-                    return GraphicsCaptureItem.FromAbi(raw);
+                    return FromAbi<GraphicsCaptureItem>(raw);
                 }
                 finally
                 {
@@ -756,13 +722,19 @@ namespace Jietu
         {
             try
             {
-                IntPtr self = ((IWinRTObject)session).NativeObject.ThisPtr;
-                Guid iid = IID_IGraphicsCaptureSession3;
-                IntPtr session3;
-                if (Marshal.QueryInterface(self, in iid, out session3) == 0)
+                IntPtr self = ToAbi(session);
+                try
                 {
-                    ((delegate* unmanaged<IntPtr, byte, int>)Slot(session3, 7))(session3, 0);
-                    Marshal.Release(session3);
+                    IntPtr session3;
+                    if (QueryRaw(self, IID_IGraphicsCaptureSession3, out session3) == 0)
+                    {
+                        ((delegate* unmanaged[Stdcall]<IntPtr, byte, int>)Slot(session3, 7))(session3, 0);
+                        Marshal.Release(session3);
+                    }
+                }
+                finally
+                {
+                    Marshal.Release(self);
                 }
             }
             catch
@@ -772,7 +744,7 @@ namespace Jietu
 
         unsafe static IntPtr TextureOf(IDirect3DSurface surface)
         {
-            IntPtr unknown = MarshalInterface<IDirect3DSurface>.FromManaged(surface);
+            IntPtr unknown = ToAbi(surface);
             try
             {
                 IntPtr access = Query(unknown, IID_DxgiInterfaceAccess);
@@ -780,7 +752,7 @@ namespace Jietu
                 {
                     Guid iid = IID_ID3D11Texture2D;
                     IntPtr texture;
-                    Check(((delegate* unmanaged<IntPtr, Guid*, IntPtr*, int>)Slot(access, 3))(access, &iid, &texture));
+                    Check(((delegate* unmanaged[Stdcall]<IntPtr, Guid*, IntPtr*, int>)Slot(access, 3))(access, &iid, &texture));
                     return texture;
                 }
                 finally
@@ -803,7 +775,7 @@ namespace Jietu
                 Check(CreateDirect3D11SurfaceFromDXGISurface(dxgi, out inspectable));
                 try
                 {
-                    return MarshalInterface<IDirect3DSurface>.FromAbi(inspectable);
+                    return FromAbi<IDirect3DSurface>(inspectable);
                 }
                 finally
                 {
@@ -855,10 +827,10 @@ namespace Jietu
                     _audio.Clear();
                 }
 
-                if (_file != null)
+                if (_stream != null)
                 {
-                    _file.Dispose();
-                    _file = null;
+                    _stream.Dispose();
+                    _stream = null;
                 }
 
                 if (_lastTexture != IntPtr.Zero)
@@ -890,8 +862,63 @@ namespace Jietu
         static IntPtr Query(IntPtr unknown, Guid iid)
         {
             IntPtr result;
-            Check(Marshal.QueryInterface(unknown, in iid, out result));
+            Check(QueryRaw(unknown, iid, out result));
             return result;
+        }
+
+        static Task<T> Await<T>(IAsyncOperation<T> operation)
+        {
+            var done = new TaskCompletionSource<T>();
+            operation.Completed = (info, status) =>
+            {
+                if (status == AsyncStatus.Completed) done.TrySetResult(info.GetResults());
+                else if (status == AsyncStatus.Error) done.TrySetException(info.ErrorCode);
+                else done.TrySetCanceled();
+            };
+            return done.Task;
+        }
+
+        static Task Await<P>(IAsyncActionWithProgress<P> operation)
+        {
+            var done = new TaskCompletionSource<bool>();
+            operation.Completed = (info, status) =>
+            {
+                if (status == AsyncStatus.Completed)
+                {
+                    info.GetResults();
+                    done.TrySetResult(true);
+                }
+                else if (status == AsyncStatus.Error) done.TrySetException(info.ErrorCode);
+                else done.TrySetCanceled();
+            };
+            return done.Task;
+        }
+
+        static int QueryRaw(IntPtr unknown, Guid iid, out IntPtr result)
+        {
+#if NET
+            return Marshal.QueryInterface(unknown, in iid, out result);
+#else
+            return Marshal.QueryInterface(unknown, ref iid, out result);
+#endif
+        }
+
+        static T FromAbi<T>(IntPtr pointer) where T : class
+        {
+#if NET
+            return MarshalInspectable<T>.FromAbi(pointer);
+#else
+            return (T)Marshal.GetObjectForIUnknown(pointer);
+#endif
+        }
+
+        static IntPtr ToAbi(object value)
+        {
+#if NET
+            return MarshalInspectable<object>.FromManaged(value);
+#else
+            return Marshal.GetIUnknownForObject(value);
+#endif
         }
 
         unsafe static IntPtr Slot(IntPtr com, int index)
@@ -907,5 +934,4 @@ namespace Jietu
             }
         }
     }
-#endif
 }
