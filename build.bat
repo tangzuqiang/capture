@@ -18,7 +18,7 @@ set "FW=%SystemRoot%\Microsoft.NET\Framework64\v4.0.30319"
 set "WM=%SystemRoot%\System32\WinMetadata"
 if not exist bin mkdir bin
 
-"%CSC%" /nologo /t:winexe /platform:x64 /optimize+ /unsafe /langversion:latest /codepage:65001 /win32manifest:app.manifest /win32icon:assets\capture.ico /resource:assets\capture.ico,Jietu.capture.ico /out:bin\Jietu.exe ^
+"%CSC%" /nologo /t:winexe /platform:x64 /optimize+ /unsafe /langversion:latest /codepage:65001 /win32manifest:app.manifest /win32icon:assets\capture.ico /resource:assets\capture.ico,Shiying.capture.ico /out:bin\Shiying.exe ^
   /r:"%FW%\System.dll" ^
   /r:"%FW%\System.Core.dll" ^
   /r:"%FW%\System.Drawing.dll" ^
@@ -59,9 +59,9 @@ if not exist bin mkdir bin
 
 if errorlevel 1 exit /b 1
 echo.
-call :say "7F16 8BD1 6210 529F 003A 0020" "%cd%\bin\Jietu.exe"
+call :say "7F16 8BD1 6210 529F 003A 0020" "%cd%\bin\Shiying.exe"
 if "%1"=="--test" (
-  bin\Jietu.exe --selftest
+  bin\Shiying.exe --selftest
   if errorlevel 1 exit /b 1
 )
 endlocal
@@ -70,9 +70,9 @@ exit /b 0
 rem Print Unicode from code points. The bat stays ASCII, so a cp936 console shows Chinese correctly.
 :say
 setlocal
-set "JIETU_SAY_PRE=%~1"
-set "JIETU_SAY_MID=%~2"
-set "JIETU_SAY_SUF=%~3"
-powershell -NoProfile -Command "$p=''; foreach($c in $env:JIETU_SAY_PRE.Split(' ')){ if($c){ $p += [char]([Convert]::ToInt32($c,16)) } }; $s=''; if($env:JIETU_SAY_SUF){ foreach($c in $env:JIETU_SAY_SUF.Split(' ')){ if($c){ $s += [char]([Convert]::ToInt32($c,16)) } } }; Write-Host ($p + $env:JIETU_SAY_MID + $s)"
+set "SHIYING_SAY_PRE=%~1"
+set "SHIYING_SAY_MID=%~2"
+set "SHIYING_SAY_SUF=%~3"
+powershell -NoProfile -Command "$p=''; foreach($c in $env:SHIYING_SAY_PRE.Split(' ')){ if($c){ $p += [char]([Convert]::ToInt32($c,16)) } }; $s=''; if($env:SHIYING_SAY_SUF){ foreach($c in $env:SHIYING_SAY_SUF.Split(' ')){ if($c){ $s += [char]([Convert]::ToInt32($c,16)) } } }; Write-Host ($p + $env:SHIYING_SAY_MID + $s)"
 endlocal
 exit /b 0

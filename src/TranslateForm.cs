@@ -3,7 +3,7 @@ using System.Drawing;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
-namespace Jietu
+namespace Shiying
 {
     sealed class TranslateForm : Form
     {

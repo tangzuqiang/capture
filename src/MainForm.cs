@@ -5,7 +5,7 @@ using System.Drawing.Drawing2D;
 using System.IO;
 using System.Windows.Forms;
 
-namespace Jietu
+namespace Shiying
 {
     sealed class MainForm : Form
     {
@@ -26,7 +26,7 @@ namespace Jietu
         public MainForm()
         {
             AppSettings.Load();
-            Text = "截长图";
+            Text = "拾影";
             StartPosition = FormStartPosition.CenterScreen;
             FormBorderStyle = FormBorderStyle.FixedSingle;
             MaximizeBox = false;
@@ -36,7 +36,7 @@ namespace Jietu
             Font = Theme.UiFont();
 
             var title = new Label();
-            title.Text = "截长图";
+            title.Text = "拾影";
             title.Font = Theme.TitleFont();
             title.ForeColor = Color.White;
             title.AutoSize = true;
@@ -253,7 +253,7 @@ namespace Jietu
             if (_tray != null && text != null)
             {
                 _tipFile = null;
-                _tray.ShowBalloonTip(1600, "截长图", text, ToolTipIcon.Info);
+                _tray.ShowBalloonTip(1600, "拾影", text, ToolTipIcon.Info);
             }
         }
 
@@ -262,7 +262,7 @@ namespace Jietu
             if (_tray != null && text != null)
             {
                 _tipFile = path;
-                _tray.ShowBalloonTip(4000, "截长图", text, ToolTipIcon.Info);
+                _tray.ShowBalloonTip(4000, "拾影", text, ToolTipIcon.Info);
             }
         }
 
@@ -607,7 +607,7 @@ namespace Jietu
 
         static string TrayText()
         {
-            string text = "截长图  " + AppSettings.FormatGesture(AppSettings.Gesture);
+            string text = "拾影  " + AppSettings.FormatGesture(AppSettings.Gesture);
             if (text.Length > 63)
             {
                 text = text.Substring(0, 63);
@@ -664,7 +664,7 @@ namespace Jietu
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, "无法打开目录：" + ex.Message, "截长图", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(this, "无法打开目录：" + ex.Message, "拾影", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 

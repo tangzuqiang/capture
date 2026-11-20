@@ -6,7 +6,7 @@ using System.Drawing.Imaging;
 using System.Drawing.Text;
 using System.Windows.Forms;
 
-namespace Jietu
+namespace Shiying
 {
     enum AnnotateTool
     {

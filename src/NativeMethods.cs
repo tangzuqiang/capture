@@ -2,7 +2,7 @@ using System;
 using System.Drawing;
 using System.Runtime.InteropServices;
 
-namespace Jietu
+namespace Shiying
 {
     static class NativeMethods
     {
@@ -236,7 +236,7 @@ namespace Jietu
             {
                 Marshal.Copy(input, 0, dataIn.Data, input.Length);
                 bool ok = protect
-                    ? CryptProtectData(ref dataIn, "Jietu", IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, CRYPTPROTECT_UI_FORBIDDEN, ref dataOut)
+                    ? CryptProtectData(ref dataIn, "Shiying", IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, CRYPTPROTECT_UI_FORBIDDEN, ref dataOut)
                     : CryptUnprotectData(ref dataIn, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, CRYPTPROTECT_UI_FORBIDDEN, ref dataOut);
                 if (!ok || dataOut.Data == IntPtr.Zero)
                 {

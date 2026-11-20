@@ -5,7 +5,7 @@ using System.Drawing.Drawing2D;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
-namespace Jietu
+namespace Shiying
 {
     sealed class OverlayForm : Form
     {
@@ -136,7 +136,7 @@ namespace Jietu
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "截长图", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show(ex.Message, "拾影", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -953,7 +953,7 @@ namespace Jietu
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, "截长图", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(this, ex.Message, "拾影", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 
@@ -970,7 +970,7 @@ namespace Jietu
             {
                 dialog.Title = "保存截图";
                 dialog.Filter = "PNG 图片|*.png|JPEG 图片|*.jpg";
-                dialog.FileName = "截图_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".png";
+                dialog.FileName = "拾影_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".png";
                 dialog.InitialDirectory = AppSettings.SaveDirectory();
                 if (dialog.ShowDialog(this) != DialogResult.OK)
                 {
@@ -996,7 +996,7 @@ namespace Jietu
                 catch (Exception ex)
                 {
                     TopMost = true;
-                    MessageBox.Show(this, ex.Message, "截长图", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageBox.Show(this, ex.Message, "拾影", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
             }
         }
@@ -1021,7 +1021,7 @@ namespace Jietu
             try
             {
                 PlaceHint(hint, live);
-                hint.SetText((vertical ? "纵向" : "横向") + "截长图 · 准备滚动…  Esc 结束");
+                hint.SetText((vertical ? "纵向" : "横向") + "长图 · 准备滚动…  Esc 结束");
                 hint.Show();
                 Application.DoEvents();
 
@@ -1047,7 +1047,7 @@ namespace Jietu
 
                 if (!outcome.Ok || outcome.Image == null)
                 {
-                    MessageBox.Show(outcome.Message ?? "截长图失败", "截长图", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    MessageBox.Show(outcome.Message ?? "长图拼接失败", "拾影", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
                 else
                 {
@@ -1056,7 +1056,7 @@ namespace Jietu
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "截长图", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show(ex.Message, "拾影", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {

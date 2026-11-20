@@ -4,7 +4,7 @@ using System.Drawing.Drawing2D;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
-namespace Jietu
+namespace Shiying
 {
     static class Theme
     {
@@ -78,7 +78,7 @@ namespace Jietu
             {
                 if (_appIcon == null)
                 {
-                    using (System.IO.Stream stream = typeof(Theme).Assembly.GetManifestResourceStream("Jietu.capture.ico"))
+                    using (System.IO.Stream stream = typeof(Theme).Assembly.GetManifestResourceStream("Shiying.capture.ico"))
                     {
                         _appIcon = stream != null ? new Icon(stream) : SystemIcons.Application;
                     }

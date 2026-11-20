@@ -2,7 +2,7 @@ using System;
 using System.Drawing;
 using System.Windows.Forms;
 
-namespace Jietu
+namespace Shiying
 {
     sealed class ResultForm : Form
     {
@@ -17,7 +17,7 @@ namespace Jietu
         public ResultForm(ScrollCapture.Outcome outcome)
         {
             _image = outcome.Image;
-            Text = "截长图";
+            Text = "拾影";
             StartPosition = FormStartPosition.CenterScreen;
             Theme.Apply(this);
             Font = Theme.UiFont();
@@ -164,7 +164,7 @@ namespace Jietu
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, "截长图", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(this, ex.Message, "拾影", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 
@@ -174,7 +174,7 @@ namespace Jietu
             {
                 dialog.Title = "保存长图";
                 dialog.Filter = "PNG 图片|*.png|JPEG 图片|*.jpg";
-                dialog.FileName = "截图_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".png";
+                dialog.FileName = "拾影_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".png";
                 dialog.InitialDirectory = AppSettings.SaveDirectory();
                 if (dialog.ShowDialog(this) != DialogResult.OK)
                 {
@@ -188,7 +188,7 @@ namespace Jietu
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show(this, ex.Message, "截长图", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageBox.Show(this, ex.Message, "拾影", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
             }
         }

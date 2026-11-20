@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading;
 
-namespace Jietu
+namespace Shiying
 {
     sealed class AudioCapture : IDisposable
     {
@@ -81,7 +81,7 @@ namespace Jietu
             _pump = new Thread(Pump);
             _pump.IsBackground = true;
             _pump.Priority = ThreadPriority.AboveNormal;
-            _pump.Name = "Jietu audio mix";
+            _pump.Name = "Shiying audio mix";
             _pump.Start();
         }
 
@@ -201,7 +201,7 @@ namespace Jietu
             source._thread = new Thread(source.Run);
             source._thread.IsBackground = true;
             source._thread.Priority = ThreadPriority.Highest;
-            source._thread.Name = loopback ? "Jietu speaker" : "Jietu microphone";
+            source._thread.Name = loopback ? "Shiying speaker" : "Shiying microphone";
             source._thread.Start();
             if (!source._ready.WaitOne(5000) || source._failure != null)
             {

@@ -6,7 +6,7 @@ using System.Drawing.Text;
 using System.IO;
 using System.Windows.Forms;
 
-namespace Jietu
+namespace Shiying
 {
     static class SelfTest
     {
@@ -562,7 +562,7 @@ namespace Jietu
 
         static string TestAppIcon()
         {
-            using (Stream stream = typeof(SelfTest).Assembly.GetManifestResourceStream("Jietu.capture.ico"))
+            using (Stream stream = typeof(SelfTest).Assembly.GetManifestResourceStream("Shiying.capture.ico"))
             {
                 if (stream == null)
                 {
@@ -770,7 +770,7 @@ namespace Jietu
             string llmModel = AppSettings.LlmModel;
             string llmApiKey = AppSettings.LlmApiKey;
             string translateTarget = AppSettings.TranslateTarget;
-            string path = Path.Combine(Path.GetTempPath(), "jietu-settings-" + Guid.NewGuid().ToString("N") + ".txt");
+            string path = Path.Combine(Path.GetTempPath(), "shiying-settings-" + Guid.NewGuid().ToString("N") + ".txt");
             try
             {
                 if (AppSettings.IsValidGesture(Keys.A))

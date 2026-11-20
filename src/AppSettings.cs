@@ -3,7 +3,7 @@ using System.IO;
 using System.Text;
 using System.Windows.Forms;
 
-namespace Jietu
+namespace Shiying
 {
     enum ScrollPace
     {
@@ -39,7 +39,7 @@ namespace Jietu
             {
                 string dir = Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                    "Jietu");
+                    "Shiying");
                 return Path.Combine(dir, "settings.txt");
             }
         }
@@ -76,7 +76,38 @@ namespace Jietu
 
         public static void Load()
         {
+            MigrateLegacySettings();
             Load(DefaultPath);
+        }
+
+        // 旧版品牌名是 Jietu，配置放在 %AppData%\Jietu。改名成 Shiying 后老用户的
+        // 快捷键、保存目录、模型配置不能丢：新位置没有、旧位置有时复制一份过去。
+        // 旧目录保留不动，万一要回退还不至于丢配置。
+        static void MigrateLegacySettings()
+        {
+            try
+            {
+                string legacy = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                    "Jietu");
+                string legacyFile = Path.Combine(legacy, "settings.txt");
+                if (File.Exists(DefaultPath) || !File.Exists(legacyFile))
+                {
+                    return;
+                }
+
+                string dir = Path.GetDirectoryName(DefaultPath);
+                if (!string.IsNullOrEmpty(dir))
+                {
+                    Directory.CreateDirectory(dir);
+                }
+
+                File.Copy(legacyFile, DefaultPath, true);
+            }
+            catch (Exception)
+            {
+                // 迁移失败不该挡住启动，读不到就当默认配置
+            }
         }
 
         public static void Load(string path)

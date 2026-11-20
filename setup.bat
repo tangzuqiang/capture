@@ -20,23 +20,23 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\fetch-models.p
 if errorlevel 1 exit /b 1
 
 if exist "%~dp0publish\win-x64" rmdir /s /q "%~dp0publish\win-x64"
-"%DOTNET%" publish "%~dp0Jietu.csproj" -c Release -o "%~dp0publish\win-x64"
+"%DOTNET%" publish "%~dp0Shiying.csproj" -c Release -o "%~dp0publish\win-x64"
 if errorlevel 1 exit /b 1
 
-"%ISCC%" "%~dp0installer\jietu.iss"
+"%ISCC%" "%~dp0installer\shiying.iss"
 if errorlevel 1 exit /b 1
 
 echo.
-call :say "5B89 88C5 5305 003A 0020" "%~dp0dist\" "622A 957F 56FE 5B89 88C5 5305 002E 0065 0078 0065"
+call :say "5B89 88C5 5305 003A 0020" "%~dp0dist\" "62FE 5F71 5B89 88C5 5305 002E 0065 0078 0065"
 endlocal
 exit /b 0
 
 rem Print Unicode from code points. The bat stays ASCII, so a cp936 console shows Chinese correctly.
 :say
 setlocal
-set "JIETU_SAY_PRE=%~1"
-set "JIETU_SAY_MID=%~2"
-set "JIETU_SAY_SUF=%~3"
-powershell -NoProfile -Command "$p=''; foreach($c in $env:JIETU_SAY_PRE.Split(' ')){ if($c){ $p += [char]([Convert]::ToInt32($c,16)) } }; $s=''; if($env:JIETU_SAY_SUF){ foreach($c in $env:JIETU_SAY_SUF.Split(' ')){ if($c){ $s += [char]([Convert]::ToInt32($c,16)) } } }; Write-Host ($p + $env:JIETU_SAY_MID + $s)"
+set "SHIYING_SAY_PRE=%~1"
+set "SHIYING_SAY_MID=%~2"
+set "SHIYING_SAY_SUF=%~3"
+powershell -NoProfile -Command "$p=''; foreach($c in $env:SHIYING_SAY_PRE.Split(' ')){ if($c){ $p += [char]([Convert]::ToInt32($c,16)) } }; $s=''; if($env:SHIYING_SAY_SUF){ foreach($c in $env:SHIYING_SAY_SUF.Split(' ')){ if($c){ $s += [char]([Convert]::ToInt32($c,16)) } } }; Write-Host ($p + $env:SHIYING_SAY_MID + $s)"
 endlocal
 exit /b 0

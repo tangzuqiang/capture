@@ -13,7 +13,7 @@ using Windows.Media.Ocr;
 using Windows.Storage.Streams;
 #endif
 
-namespace Jietu
+namespace Shiying
 {
     static class OcrText
     {

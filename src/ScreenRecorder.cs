@@ -20,7 +20,7 @@ using WinRT;
 #endif
 using Size = System.Drawing.Size;
 
-namespace Jietu
+namespace Shiying
 {
     sealed class ScreenRecorder
     {

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
 
-namespace Jietu
+namespace Shiying
 {
     static class ScrollCapture
     {
@@ -224,7 +224,7 @@ namespace Jietu
 
                     if (progress != null)
                     {
-                        progress(string.Format("{0}截长图 · 第 {1} 屏 · Esc 结束", vertical ? "纵向" : "横向", frames.Count));
+                        progress(string.Format("{0}长图 · 第 {1} 屏 · Esc 结束", vertical ? "纵向" : "横向", frames.Count));
                     }
 
                     int estimated = viewAlong + (int)(pxPerNotch * notches * (frames.Count - 1));
@@ -332,7 +332,7 @@ namespace Jietu
 
                 if (progress != null)
                 {
-                    progress((vertical ? "纵向" : "横向") + "截长图 · 正在滚动…");
+                    progress((vertical ? "纵向" : "横向") + "长图 · 正在滚动…");
                 }
 
                 Scroller method = methods[i];

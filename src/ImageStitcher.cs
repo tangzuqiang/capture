@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
 
-namespace Jietu
+namespace Shiying
 {
     /// <summary>
     /// 把同一视口连续截到的画面拼成一张长图。

@@ -1,7 +1,7 @@
 using System.Drawing;
 using System.Windows.Forms;
 
-namespace Jietu
+namespace Shiying
 {
     sealed class HintForm : Form
     {
@@ -23,7 +23,7 @@ namespace Jietu
             _label.ForeColor = Theme.Text;
             _label.Font = Theme.UiFont();
             _label.TextAlign = ContentAlignment.MiddleCenter;
-            _label.Text = "正在截长图…";
+            _label.Text = "正在拼接长图…";
             Controls.Add(_label);
         }
 

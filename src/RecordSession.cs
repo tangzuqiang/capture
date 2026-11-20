@@ -7,7 +7,7 @@ using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
-namespace Jietu
+namespace Shiying
 {
     static class RecordSession
     {
@@ -55,7 +55,7 @@ namespace Jietu
             {
                 _recorder = null;
                 CloseUi();
-                MessageBox.Show("录屏启动失败：" + ex.Message, "截长图", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("录屏启动失败：" + ex.Message, "拾影", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             finally
             {
@@ -84,7 +84,7 @@ namespace Jietu
             }
             catch (Exception ex)
             {
-                MessageBox.Show("录屏保存失败：" + ex.Message, "截长图", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("录屏保存失败：" + ex.Message, "拾影", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             finally
             {

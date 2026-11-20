@@ -1,8 +1,8 @@
-; 截长图安装包。程序目录自带 .NET 运行时，目标电脑不需要另外安装 .NET。
+; 拾影安装包。程序目录自带 .NET 运行时，目标电脑不需要另外安装 .NET。
 
-#define AppName "截长图"
+#define AppName "拾影"
 #define AppVersion "1.0.0"
-#define AppExe "Jietu.exe"
+#define AppExe "Shiying.exe"
 #define PublishDir "..\publish\win-x64"
 
 [Setup]
@@ -14,7 +14,7 @@ DefaultDirName={autopf}\{#AppName}
 DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
 OutputDir=..\dist
-OutputBaseFilename=截长图安装包
+OutputBaseFilename=拾影安装包
 Compression=lzma2/ultra64
 SolidCompression=yes
 LZMAUseSeparateProcess=yes

@@ -8,7 +8,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 #endif
 
-namespace Jietu
+namespace Shiying
 {
     sealed class LlmPreset
     {

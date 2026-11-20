@@ -3,7 +3,7 @@ using System.IO;
 using System.Text;
 using System.Windows.Forms;
 
-namespace Jietu
+namespace Shiying
 {
     static class Program
     {
@@ -31,7 +31,7 @@ namespace Jietu
             Application.SetCompatibleTextRenderingDefault(false);
             Application.ThreadException += (s, e) =>
             {
-                MessageBox.Show(e.Exception.Message, "截长图", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show(e.Exception.Message, "拾影", MessageBoxButtons.OK, MessageBoxIcon.Error);
             };
 
             Application.Run(new MainForm());

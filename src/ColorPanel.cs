@@ -1,6 +1,6 @@
 using System.Drawing;
 
-namespace Jietu
+namespace Shiying
 {
     static class ColorText
     {

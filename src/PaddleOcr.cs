@@ -10,7 +10,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using Microsoft.ML.OnnxRuntime;
 
-namespace Jietu
+namespace Shiying
 {
     // PP-OCRv5 mobile (RapidOCR ONNX export): DB text detection + CTC line recognition.
     static class PaddleOcr
