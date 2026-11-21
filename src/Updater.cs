@@ -130,7 +130,8 @@ namespace Shiying
         public static bool Download(UpdateInfo info, Action<long, long> progress, Func<bool> cancelled, out string error)
         {
             error = null;
-            string part = InstallerPath + ".part";
+            // 每个进程用独立的临时文件名，避免上一次没退干净的下载占着目标文件
+            string part = InstallerPath + "." + Process.GetCurrentProcess().Id + ".part";
             try
             {
                 Directory.CreateDirectory(DownloadFolder);

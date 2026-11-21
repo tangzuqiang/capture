@@ -32,6 +32,26 @@ namespace Shiying
                 Environment.Exit(RunLogged("bin\\updatedownload.log", RunUpdateDownload));
             }
 
+            // 只为了本地看更新对话框（不点「立即更新」不会安装）
+            if (HasArg(args, "--updatewindow"))
+            {
+                try
+                {
+                    Application.EnableVisualStyles();
+                    UpdateInfo info = Updater.Fetch();
+                    using (var form = new UpdateForm(info))
+                    {
+                        Application.Run(form);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(ex.Message, "拾影", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+
+                return;
+            }
+
             if (args != null && args.Length == 3 && args[0] == "--ocr")
             {
                 Environment.Exit(RunOcrFile(args[1], args[2]));
