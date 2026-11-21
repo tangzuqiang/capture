@@ -14,6 +14,7 @@ namespace Shiying
         {
             int failed = 0;
             failed += RunCase("vertical chrome", TestVerticalChrome);
+            failed += RunCase("manual uneven steps", TestManualSteps);
             failed += RunCase("vertical duplicate tail", TestDuplicateTail);
             failed += RunCase("vertical no chrome", TestNoChrome);
             failed += RunCase("horizontal chrome", TestHorizontalChrome);
@@ -108,6 +109,68 @@ namespace Shiying
                         if (pixel != null) return "header " + pixel;
                         pixel = ExpectRow(output.Image, doc, 40, 0);
                         if (pixel != null) return "doc0 " + pixel;
+                        pixel = ExpectRow(output.Image, doc, 140, 100);
+                        if (pixel != null) return "doc100 " + pixel;
+                        pixel = ExpectRow(output.Image, doc, 339, 299);
+                        if (pixel != null) return "doc299 " + pixel;
+                        pixel = ExpectRow(output.Image, footer, 363, 23);
+                        if (pixel != null) return "footer " + pixel;
+                    }
+                }
+                finally
+                {
+                    DisposeAll(frames);
+                }
+            }
+
+            return null;
+        }
+
+        static string TestManualSteps()
+        {
+            using (Bitmap doc = MakeDocument(80, 300, true))
+            using (Bitmap header = MakeBar(80, 40, true))
+            using (Bitmap footer = MakeBar(80, 24, false))
+            {
+                var frames = new List<Bitmap>();
+                var offsets = new List<int>();
+                int[] positions = { 0, 30, 85, 105, 165, 210 };
+                try
+                {
+                    for (int i = 0; i < positions.Length; i++)
+                    {
+                        frames.Add(View(doc, header, footer, positions[i], 90, true));
+                        if (i == 0)
+                        {
+                            offsets.Add(0);
+                            continue;
+                        }
+
+                        ImageStitcher.ShiftMeasure measure = ImageStitcher.Measure(frames[i - 1], frames[i], true);
+                        int want = positions[i] - positions[i - 1];
+                        if (!measure.Moved || !measure.Reliable || measure.Offset != want)
+                        {
+                            return "step " + i + " offset " + measure.Offset + " want " + want;
+                        }
+
+                        offsets.Add(measure.Offset);
+                    }
+
+                    ImageStitcher.StitchOutput output = ImageStitcher.Stitch(frames, offsets, true);
+                    using (output.Image)
+                    {
+                        if (output.Image == null || output.UsedFrames != positions.Length)
+                        {
+                            return output.Note;
+                        }
+
+                        if (output.Image.Height != 364)
+                        {
+                            return "size " + output.Image.Width + "x" + output.Image.Height + " " + output.Note;
+                        }
+
+                        string pixel = ExpectRow(output.Image, header, 0, 0);
+                        if (pixel != null) return "header " + pixel;
                         pixel = ExpectRow(output.Image, doc, 140, 100);
                         if (pixel != null) return "doc100 " + pixel;
                         pixel = ExpectRow(output.Image, doc, 339, 299);

@@ -366,6 +366,95 @@ namespace Shiying
             return output;
         }
 
+        /// <summary>
+        /// 手动滚动时步长不均匀，用截帧时测好的位移拼接，不再按上一步的位移去猜。
+        /// offsets[i] 是 frames[i - 1] 到 frames[i] 的位移，offsets[0] 不用。
+        /// </summary>
+        public static StitchOutput Stitch(IList<Bitmap> frames, IList<int> offsets, bool vertical)
+        {
+            var output = new StitchOutput();
+            if (frames == null || frames.Count == 0)
+            {
+                output.Note = "没有画面";
+                return output;
+            }
+
+            if (frames.Count == 1 || offsets == null || offsets.Count != frames.Count)
+            {
+                output.Image = CloneBitmap(frames[0]);
+                output.UsedFrames = 1;
+                output.Note = "只有一屏";
+                return output;
+            }
+
+            int length = vertical ? frames[0].Height : frames[0].Width;
+            int startChrome;
+            int endChrome;
+            DetectChrome(frames[0], frames[1], vertical, offsets[1], out startChrome, out endChrome);
+            int contentStart = startChrome;
+            int contentEnd = length - endChrome;
+            if (contentEnd - contentStart < 16)
+            {
+                startChrome = 0;
+                endChrome = 0;
+                contentStart = 0;
+                contentEnd = length;
+            }
+
+            int contentLength = contentEnd - contentStart;
+            var slices = new List<Slice>();
+            slices.Add(new Slice
+            {
+                Source = frames[0],
+                Start = contentStart,
+                Length = contentLength
+            });
+
+            int contentTotal = contentLength;
+            int used = 1;
+            string note = "完成";
+            for (int i = 1; i < frames.Count; i++)
+            {
+                if (!AppendSlice(frames[i], contentEnd, offsets[i], contentLength, slices, ref contentTotal))
+                {
+                    note = "滚动幅度不适合拼接，已保留已拼好的部分";
+                    break;
+                }
+
+                used = i + 1;
+                if (contentTotal > 48000)
+                {
+                    note = "已达到长度上限";
+                    break;
+                }
+            }
+
+            if (used < 2)
+            {
+                output.Image = CloneBitmap(frames[0]);
+                output.UsedFrames = 1;
+                output.Note = note;
+                return output;
+            }
+
+            try
+            {
+                output.Image = Compose(frames[0], frames[used - 1], vertical, startChrome, endChrome, slices, contentTotal);
+                output.UsedFrames = used;
+                output.StartChrome = startChrome;
+                output.EndChrome = endChrome;
+                output.Note = note;
+            }
+            catch (Exception ex)
+            {
+                output.Image = CloneBitmap(frames[0]);
+                output.UsedFrames = 1;
+                output.Note = ex.Message;
+            }
+
+            return output;
+        }
+
         static bool AppendSlice(Bitmap source, int contentEnd, int shift, int contentLength, List<Slice> slices, ref int contentTotal)
         {
             if (shift < 2 || shift >= contentLength - 4)

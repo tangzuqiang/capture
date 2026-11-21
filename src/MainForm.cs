@@ -310,6 +310,17 @@ namespace Shiying
 
         void StartCapture()
         {
+            if (ScrollSession.Active)
+            {
+                ScrollSession.Finish();
+                return;
+            }
+
+            if (OverlayForm.TryStopLong())
+            {
+                return;
+            }
+
             if (RecordSession.Active)
             {
                 RecordSession.Stop(this);
@@ -321,6 +332,11 @@ namespace Shiying
 
         void ToggleRecord()
         {
+            if (ScrollSession.Active)
+            {
+                return;
+            }
+
             if (RecordSession.Active)
             {
                 RecordSession.Stop(this);

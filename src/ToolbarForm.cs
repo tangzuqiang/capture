@@ -21,6 +21,7 @@ namespace Shiying
         Save,
         Down,
         Right,
+        Scroll,
         Record,
         Close
     }
@@ -51,6 +52,7 @@ namespace Shiying
         public IconButton SaveButton;
         public IconButton VerticalButton;
         public IconButton HorizontalButton;
+        public IconButton ScrollButton;
         public IconButton RecordButton;
         public IconButton DismissButton;
         public event EventHandler InkChanged;
@@ -114,6 +116,7 @@ namespace Shiying
             SaveButton = MakeIcon(ToolGlyph.Save, "保存");
             VerticalButton = MakeIcon(ToolGlyph.Down, "纵向长图");
             HorizontalButton = MakeIcon(ToolGlyph.Right, "横向长图");
+            ScrollButton = MakeIcon(ToolGlyph.Scroll, "手动长图");
             RecordButton = MakeIcon(ToolGlyph.Record, "录屏");
             DismissButton = MakeIcon(ToolGlyph.Close, "取消");
             CopyButton.Accent = true;
@@ -134,6 +137,7 @@ namespace Shiying
             tools.Controls.Add(SaveButton);
             tools.Controls.Add(VerticalButton);
             tools.Controls.Add(HorizontalButton);
+            tools.Controls.Add(ScrollButton);
             tools.Controls.Add(RecordButton);
             tools.Controls.Add(DismissButton);
 
@@ -276,6 +280,7 @@ namespace Shiying
             Tip(tip, SaveButton, "保存");
             Tip(tip, VerticalButton, "纵向长图");
             Tip(tip, HorizontalButton, "横向长图");
+            Tip(tip, ScrollButton, "手动长图（M）：自己滚动，Esc 或截图快捷键完成");
             Tip(tip, RecordButton, "录屏");
             Tip(tip, DismissButton, "取消");
             SetActive(AnnotateTool.None);
@@ -689,6 +694,19 @@ namespace Shiying
                     new PointF(17, 10),
                     new PointF(17, 22)
                 });
+            }
+            else if (glyph == ToolGlyph.Scroll)
+            {
+                using (var body = new GraphicsPath())
+                {
+                    body.AddArc(10, 6, 12, 12, 180, 180);
+                    body.AddLine(22, 12, 22, 20);
+                    body.AddArc(10, 14, 12, 12, 0, 180);
+                    body.CloseFigure();
+                    g.DrawPath(pen, body);
+                }
+
+                g.DrawLine(pen, 16, 10, 16, 14);
             }
             else if (glyph == ToolGlyph.Record)
             {

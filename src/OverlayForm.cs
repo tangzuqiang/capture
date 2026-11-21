@@ -51,7 +51,22 @@ namespace Shiying
         Form _ocrForm;
         public ScrollCapture.Outcome Outcome;
         public Rectangle RecordRegion;
+        public Rectangle ScrollRegion;
         bool _recordMode;
+        bool _longRunning;
+        bool _longStop;
+
+        public static bool TryStopLong()
+        {
+            OverlayForm form = _active;
+            if (form == null || form.IsDisposed || !form._longRunning)
+            {
+                return false;
+            }
+
+            form._longStop = true;
+            return true;
+        }
 
         public static bool TryStartRecord()
         {
@@ -108,7 +123,7 @@ namespace Shiying
 
         public static void Run(MainForm owner, bool recordMode = false)
         {
-            if (_running)
+            if (_running || ScrollSession.Active)
             {
                 return;
             }
@@ -116,6 +131,7 @@ namespace Shiying
             _running = true;
             ScrollCapture.Outcome outcome = null;
             Rectangle record = Rectangle.Empty;
+            Rectangle scroll = Rectangle.Empty;
             try
             {
                 if (owner != null && owner.Visible && !owner.IsDisposed)
@@ -132,6 +148,7 @@ namespace Shiying
                     overlay.ShowDialog();
                     outcome = overlay.Outcome;
                     record = overlay.RecordRegion;
+                    scroll = overlay.ScrollRegion;
                 }
             }
             catch (Exception ex)
@@ -146,6 +163,12 @@ namespace Shiying
             if (!record.IsEmpty)
             {
                 RecordSession.Start(owner, record);
+                return;
+            }
+
+            if (!scroll.IsEmpty)
+            {
+                ScrollSession.Start(owner, scroll);
                 return;
             }
 
@@ -183,6 +206,7 @@ namespace Shiying
             _toolbar.SaveButton.Click += (s, e) => SaveStill();
             _toolbar.VerticalButton.Click += (s, e) => StartLong(true);
             _toolbar.HorizontalButton.Click += (s, e) => StartLong(false);
+            _toolbar.ScrollButton.Click += (s, e) => StartManualLong();
             _toolbar.RecordButton.Click += (s, e) => StartRecord();
             _toolbar.DismissButton.Click += (s, e) => Cancel();
             _toolbar.RectButton.Click += (s, e) => SetTool(AnnotateTool.Rect);
@@ -246,6 +270,11 @@ namespace Shiying
                 else if (e.KeyCode == Keys.Right)
                 {
                     StartLong(false);
+                    e.Handled = true;
+                }
+                else if (e.KeyCode == Keys.M && e.Modifiers == Keys.None && !_toolbar.PhraseFocused)
+                {
+                    StartManualLong();
                     e.Handled = true;
                 }
             };
@@ -553,6 +582,12 @@ namespace Shiying
                 return true;
             }
 
+            if (keyData == Keys.M && !_toolbar.PhraseFocused)
+            {
+                StartManualLong();
+                return true;
+            }
+
             if (keyData == (Keys.Control | Keys.S))
             {
                 SaveStill();
@@ -624,7 +659,7 @@ namespace Shiying
                 }
                 else if (_hasSel)
                 {
-                    text = "悬停图标可看名称    Enter 复制    ↓→ 长图    Esc 取消";
+                    text = "悬停图标可看名称    Enter 复制    ↓→ 长图    M 手动长图    Esc 取消";
                 }
                 else if (_recordMode)
                 {
@@ -1018,10 +1053,12 @@ namespace Shiying
             Rectangle live = new Rectangle(_screenBounds.X + _sel.X, _screenBounds.Y + _sel.Y, _sel.Width, _sel.Height);
             bool escWasDown = NativeMethods.IsEscapeDown();
             HintForm hint = new HintForm();
+            _longStop = false;
+            _longRunning = true;
             try
             {
                 PlaceHint(hint, live);
-                hint.SetText((vertical ? "纵向" : "横向") + "长图 · 准备滚动…  Esc 结束");
+                hint.SetText((vertical ? "纵向" : "横向") + "长图 · 准备滚动…  Esc 或 " + AppSettings.FormatGesture(AppSettings.Gesture) + " 结束");
                 hint.Show();
                 Application.DoEvents();
 
@@ -1035,6 +1072,11 @@ namespace Shiying
                     },
                     () =>
                     {
+                        if (_longStop)
+                        {
+                            return true;
+                        }
+
                         bool down = NativeMethods.IsEscapeDown();
                         if (!down)
                         {
@@ -1060,10 +1102,23 @@ namespace Shiying
             }
             finally
             {
+                _longRunning = false;
                 hint.Close();
                 hint.Dispose();
                 Close();
             }
+        }
+
+        void StartManualLong()
+        {
+            if (_busy || !_hasSel)
+            {
+                return;
+            }
+
+            ScrollRegion = new Rectangle(_screenBounds.X + _sel.X, _screenBounds.Y + _sel.Y, _sel.Width, _sel.Height);
+            Outcome = null;
+            Close();
         }
 
         void StartRecord()

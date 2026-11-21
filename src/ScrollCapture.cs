@@ -224,7 +224,7 @@ namespace Shiying
 
                     if (progress != null)
                     {
-                        progress(string.Format("{0}长图 · 第 {1} 屏 · Esc 结束", vertical ? "纵向" : "横向", frames.Count));
+                        progress(string.Format("{0}长图 · 第 {1} 屏 · Esc 或 {2} 结束", vertical ? "纵向" : "横向", frames.Count, AppSettings.FormatGesture(AppSettings.Gesture)));
                     }
 
                     int estimated = viewAlong + (int)(pxPerNotch * notches * (frames.Count - 1));
@@ -454,7 +454,7 @@ namespace Shiying
             return notches;
         }
 
-        static int MaxFrames(Rectangle region)
+        internal static int MaxFrames(Rectangle region)
         {
             long pixels = (long)region.Width * region.Height;
             if (pixels < 1)
@@ -506,7 +506,7 @@ namespace Shiying
             return first;
         }
 
-        static bool QuickSame(Bitmap a, Bitmap b)
+        internal static bool QuickSame(Bitmap a, Bitmap b)
         {
             if (a.Width != b.Width || a.Height != b.Height)
             {

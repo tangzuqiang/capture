@@ -47,6 +47,7 @@ if not exist bin mkdir bin
   src\ScreenGrab.cs ^
   src\ImageStitcher.cs ^
   src\ScrollCapture.cs ^
+  src\ScrollSession.cs ^
   src\MainForm.cs ^
   src\OverlayForm.cs ^
   src\ToolbarForm.cs ^
