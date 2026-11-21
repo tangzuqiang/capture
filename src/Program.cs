@@ -22,6 +22,16 @@ namespace Shiying
                 Environment.Exit(RunLogged("bin\\uitest.log", UiTest.Run));
             }
 
+            if (HasArg(args, "--updatecheck"))
+            {
+                Environment.Exit(RunLogged("bin\\updatecheck.log", RunUpdateCheck));
+            }
+
+            if (HasArg(args, "--updatedownload"))
+            {
+                Environment.Exit(RunLogged("bin\\updatedownload.log", RunUpdateDownload));
+            }
+
             if (args != null && args.Length == 3 && args[0] == "--ocr")
             {
                 Environment.Exit(RunOcrFile(args[1], args[2]));
@@ -87,6 +97,53 @@ namespace Shiying
             catch (Exception ex)
             {
                 File.WriteAllText(outputPath, ex.ToString(), Encoding.UTF8);
+                return 1;
+            }
+        }
+
+        // 命令行自检：拉一次 latest.json，输出本地/远端版本，方便在服务器或本机核对发布是否生效。
+        static int RunUpdateCheck()
+        {
+            try
+            {
+                UpdateInfo info = Updater.Fetch();
+                string current = AppInfo.Version;
+                bool newer = Updater.IsNewer(info.Version, current);
+                Console.WriteLine("current=" + (current.Length > 0 ? current : "?"));
+                Console.WriteLine("remote=" + info.Version);
+                Console.WriteLine("newer=" + newer);
+                Console.WriteLine("size=" + info.Size);
+                Console.WriteLine("sha256=" + info.Sha256);
+                Console.WriteLine("url=" + info.Url);
+                Console.WriteLine("notes=" + info.Notes);
+                return newer ? 2 : 0;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("ERROR " + ex.GetType().Name + " " + ex.Message);
+                return 1;
+            }
+        }
+
+        // 命令行自检：真正下载一次安装包并校验 sha256（不启动安装），用来验证发布链路。
+        static int RunUpdateDownload()
+        {
+            try
+            {
+                UpdateInfo info = Updater.Fetch();
+                string error;
+                if (!Updater.Download(info, null, null, out error))
+                {
+                    Console.WriteLine("FAIL " + error);
+                    return 1;
+                }
+
+                Console.WriteLine("OK " + Updater.InstallerPath + " " + info.Size + " bytes");
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("ERROR " + ex.GetType().Name + " " + ex.Message);
                 return 1;
             }
         }

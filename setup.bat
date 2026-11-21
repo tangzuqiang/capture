@@ -7,6 +7,8 @@ set "PUB_HOST=root@111.230.247.111"
 set "PUB_DIR=/usr/share/nginx/html/shiying"
 set "GIT_REMOTE=origin"
 set "GIT_BRANCH=master"
+set "PUB_HOSTNAME=%PUB_HOST:*@=%"
+set "PUB_BASEURL=http://%PUB_HOSTNAME%/shiying"
 rem ==========================================================================
 
 set "DOTNET=%ProgramFiles%\dotnet\dotnet.exe"
@@ -44,7 +46,12 @@ if errorlevel 1 goto :fail
 
 echo [4/6] build installer
 if exist "dist\*.exe" del /q "dist\*.exe"
+if exist "dist\latest.json" del /q "dist\latest.json"
 "%ISCC%" /DAppVersion=%NEWVER% "installer\shiying.iss"
+if errorlevel 1 goto :fail
+
+echo      write latest.json
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\make-latest.ps1" -Version %NEWVER% -DistDir "dist" -BaseUrl "%PUB_BASEURL%"
 if errorlevel 1 goto :fail
 
 echo [5/6] git commit + push
@@ -65,6 +72,9 @@ for %%f in ("dist\*.exe") do (
   scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new "%%~ff" %PUB_HOST%:%PUB_DIR%/
   if errorlevel 1 set "UPFAIL=1"
 )
+echo     upload latest.json
+scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new "dist\latest.json" %PUB_HOST%:%PUB_DIR%/
+if errorlevel 1 set "UPFAIL=1"
 if defined UPFAIL (
   echo !! upload FAILED
   goto :fail

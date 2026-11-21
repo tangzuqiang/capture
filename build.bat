@@ -34,6 +34,8 @@ if not exist bin mkdir bin
   src\NativeMethods.cs ^
   src\AppSettings.cs ^
   src\AppInfo.cs ^
+  src\Updater.cs ^
+  src\UpdateForm.cs ^
   src\Theme.cs ^
   src\Markup.cs ^
   src\OcrText.cs ^

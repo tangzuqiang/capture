@@ -1,0 +1,283 @@
+[1/6] bump version
+    version => 1.0.4
+[2/6] fetch models
+[3/6] dotnet publish
+  正在确定要还原的项目…
+  所有项目均是最新的，无法还原。
+E:\wwwroot\c\jietu\src\Updater.cs(47,33): warning SYSLIB0014: “WebClient.WebClient()”已过时:“WebRequest, HttpWebRequest, ServicePoint, and WebClient are obsolete. Use HttpClient instead.” (https://aka.ms/dotnet-warnings/SYSLIB0014) [E:\wwwroot\c\jietu\Shiying.csproj]
+E:\wwwroot\c\jietu\src\Updater.cs(142,37): warning SYSLIB0014: “WebClient.WebClient()”已过时:“WebRequest, HttpWebRequest, ServicePoint, and WebClient are obsolete. Use HttpClient instead.” (https://aka.ms/dotnet-warnings/SYSLIB0014) [E:\wwwroot\c\jietu\Shiying.csproj]
+CSC : warning WFO0003: 从 E:\wwwroot\c\jietu\app.manifest 中删除高 DPI 设置，并通过 Application.SetHighDpiMode API 或“ApplicationHighDpiMode”项目属性进行配置 (https://aka.ms/winforms-warnings/wfo0003) [E:\wwwroot\c\jietu\Shiying.csproj]
+  Shiying -> E:\wwwroot\c\jietu\bin\Release\net10.0-windows10.0.19041.0\win-x64\Shiying.dll
+  Shiying -> E:\wwwroot\c\jietu\publish\win-x64\
+[4/6] build installer
+Inno Setup 6 Command-Line Compiler
+Copyright (C) 1997-2026 Jordan Russell. All rights reserved.
+Portions Copyright (C) 2000-2026 Martijn Laan. All rights reserved.
+Portions Copyright (C) 2001-2004 Alex Yackimoff. All rights reserved.
+https://www.innosetup.com
+
+Compiler engine version: Inno Setup 6.7.3
+Non-commercial use only
+
+Preprocessing
+   Reading file: C:\Users\Administrator\AppData\Local\Programs\Inno Setup 6\ISPPBuiltins.iss
+Parsing [Setup] section, line 11
+Parsing [Setup] section, line 12
+Parsing [Setup] section, line 13
+Parsing [Setup] section, line 14
+Parsing [Setup] section, line 15
+Parsing [Setup] section, line 16
+Parsing [Setup] section, line 17
+Parsing [Setup] section, line 18
+Parsing [Setup] section, line 19
+Parsing [Setup] section, line 20
+Parsing [Setup] section, line 21
+Parsing [Setup] section, line 22
+Parsing [Setup] section, line 23
+Parsing [Setup] section, line 24
+Parsing [Setup] section, line 25
+Parsing [Setup] section, line 26
+Parsing [Setup] section, line 27
+Parsing [Setup] section, line 28
+Parsing [Setup] section, line 29
+Reading file (WizardImageFile)
+Reading file (WizardSmallImageFile)
+Preparing Setup program executable
+   Verification successful
+   Updating icons (Setup.e32)
+   Updating version info (Setup.e32)
+Determining language code pages
+Parsing [Languages] section, line 32
+   Reading file: E:\wwwroot\c\jietu\installer\ChineseSimplified.isl
+   Messages in script file
+Reading default messages from Default.isl
+Parsing [Languages] section, line 32
+   Reading file: E:\wwwroot\c\jietu\installer\ChineseSimplified.isl
+Parsing [LangOptions], [Messages], and [CustomMessages] sections
+   Messages in script file
+Reading [Code] section
+Parsing [Tasks] section, line 35
+Parsing [Icons] section, line 41
+Parsing [Icons] section, line 42
+Parsing [Run] section, line 45
+Parsing [Files] section, line 38
+Creating setup files
+   Verification successful
+   Updating icons (Setup.exe)
+   Using separate process for LZMA compression (islzma64.exe)
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\Accessibility.dll
+   Verification successful
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\clretwrc.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\clrgc.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\clrgcexp.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\clrjit.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\coreclr.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\createdump.exe
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\hostfxr.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\hostpolicy.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\Microsoft.CSharp.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\Microsoft.DiaSymReader.Native.amd64.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\Microsoft.ML.OnnxRuntime.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\Microsoft.VisualBasic.Core.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\Microsoft.VisualBasic.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\Microsoft.VisualBasic.Forms.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\Microsoft.Win32.Primitives.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\Microsoft.Win32.Registry.AccessControl.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\Microsoft.Win32.Registry.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\Microsoft.Win32.SystemEvents.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\Microsoft.Windows.SDK.NET.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\mscordaccore.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\mscordaccore_amd64_amd64_10.0.1526.53008.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\mscordbi.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\mscorlib.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\mscorrc.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\msquic.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\netstandard.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\onnxruntime.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\onnxruntime.lib
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\onnxruntime_providers_azure.lib
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\onnxruntime_providers_shared.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\onnxruntime_providers_shared.lib
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\Shiying.deps.json
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\Shiying.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\Shiying.exe
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\Shiying.runtimeconfig.json
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.AppContext.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Buffers.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.CodeDom.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Collections.Concurrent.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Collections.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Collections.Immutable.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Collections.NonGeneric.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Collections.Specialized.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.ComponentModel.Annotations.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.ComponentModel.DataAnnotations.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.ComponentModel.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.ComponentModel.EventBasedAsync.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.ComponentModel.Primitives.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.ComponentModel.TypeConverter.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Configuration.ConfigurationManager.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Configuration.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Console.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Core.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Data.Common.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Data.DataSetExtensions.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Data.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Design.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Diagnostics.Contracts.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Diagnostics.Debug.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Diagnostics.DiagnosticSource.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Diagnostics.EventLog.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Diagnostics.EventLog.Messages.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Diagnostics.FileVersionInfo.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Diagnostics.PerformanceCounter.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Diagnostics.Process.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Diagnostics.StackTrace.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Diagnostics.TextWriterTraceListener.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Diagnostics.Tools.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Diagnostics.TraceSource.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Diagnostics.Tracing.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.DirectoryServices.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Drawing.Common.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Drawing.Design.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Drawing.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Drawing.Primitives.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Dynamic.Runtime.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Formats.Asn1.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Formats.Nrbf.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Formats.Tar.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Globalization.Calendars.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Globalization.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Globalization.Extensions.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.IO.Compression.Brotli.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.IO.Compression.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.IO.Compression.FileSystem.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.IO.Compression.Native.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.IO.Compression.ZipFile.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.IO.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.IO.FileSystem.AccessControl.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.IO.FileSystem.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.IO.FileSystem.DriveInfo.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.IO.FileSystem.Primitives.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.IO.FileSystem.Watcher.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.IO.IsolatedStorage.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.IO.MemoryMappedFiles.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.IO.Packaging.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.IO.Pipelines.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.IO.Pipes.AccessControl.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.IO.Pipes.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.IO.UnmanagedMemoryStream.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Linq.AsyncEnumerable.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Linq.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Linq.Expressions.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Linq.Parallel.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Linq.Queryable.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Memory.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Net.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Net.Http.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Net.Http.Json.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Net.HttpListener.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Net.Mail.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Net.NameResolution.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Net.NetworkInformation.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Net.Ping.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Net.Primitives.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Net.Quic.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Net.Requests.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Net.Security.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Net.ServerSentEvents.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Net.ServicePoint.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Net.Sockets.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Net.WebClient.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Net.WebHeaderCollection.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Net.WebProxy.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Net.WebSockets.Client.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Net.WebSockets.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Numerics.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Numerics.Tensors.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Numerics.Vectors.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.ObjectModel.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Private.CoreLib.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Private.DataContractSerialization.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Private.Uri.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Private.Windows.Core.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Private.Windows.GdiPlus.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Private.Xml.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Private.Xml.Linq.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Reflection.DispatchProxy.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Reflection.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Reflection.Emit.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Reflection.Emit.ILGeneration.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Reflection.Emit.Lightweight.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Reflection.Extensions.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Reflection.Metadata.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Reflection.Primitives.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Reflection.TypeExtensions.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Resources.Extensions.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Resources.Reader.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Resources.ResourceManager.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Resources.Writer.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Runtime.CompilerServices.Unsafe.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Runtime.CompilerServices.VisualC.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Runtime.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Runtime.Extensions.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Runtime.Handles.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Runtime.InteropServices.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Runtime.InteropServices.JavaScript.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Runtime.InteropServices.RuntimeInformation.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Runtime.Intrinsics.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Runtime.Loader.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Runtime.Numerics.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Runtime.Serialization.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Runtime.Serialization.Formatters.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Runtime.Serialization.Json.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Runtime.Serialization.Primitives.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Runtime.Serialization.Xml.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Security.AccessControl.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Security.Claims.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Security.Cryptography.Algorithms.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Security.Cryptography.Cng.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Security.Cryptography.Csp.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Security.Cryptography.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Security.Cryptography.Encoding.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Security.Cryptography.OpenSsl.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Security.Cryptography.Pkcs.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Security.Cryptography.Primitives.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Security.Cryptography.ProtectedData.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Security.Cryptography.X509Certificates.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Security.Cryptography.Xml.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Security.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Security.Permissions.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Security.Principal.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Security.Principal.Windows.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Security.SecureString.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.ServiceModel.Web.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.ServiceProcess.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Text.Encoding.CodePages.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Text.Encoding.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Text.Encoding.Extensions.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Text.Encodings.Web.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Text.Json.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Text.RegularExpressions.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Threading.AccessControl.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Threading.Channels.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Threading.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Threading.Overlapped.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Threading.Tasks.Dataflow.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Threading.Tasks.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Threading.Tasks.Extensions.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Threading.Tasks.Parallel.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Threading.Thread.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Threading.ThreadPool.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Threading.Timer.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Transactions.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Transactions.Local.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.ValueTuple.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Web.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Web.HttpUtility.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Windows.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Windows.Extensions.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Windows.Forms.Design.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Windows.Forms.Design.Editors.dll
+   Compressing: E:\wwwroot\c\jietu\installer\..\publish\win-x64\System.Windows.Forms.dll

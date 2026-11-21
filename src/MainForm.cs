@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.IO;
+using System.Threading;
 using System.Windows.Forms;
 
 namespace Shiying
@@ -18,6 +19,8 @@ namespace Shiying
         bool _exit;
         bool _tipped;
         string _tipFile;
+        UpdateInfo _updateInfo;
+        bool _checkingUpdate;
         static readonly int[] HotkeyIds = { 1, 2, 3, 4 };
         static readonly string[] HotkeyNames = { "截图", "复制 RGB", "复制网页色", "录屏" };
         static readonly Rectangle HelpCard = new Rectangle(24, 326, 512, 200);
@@ -42,6 +45,15 @@ namespace Shiying
             title.AutoSize = true;
             title.Location = new Point(26, 16);
             title.BackColor = Color.Transparent;
+
+            var version = new Label();
+            version.Text = AppInfo.Version.Length > 0 ? "v" + AppInfo.Version : "";
+            version.ForeColor = Color.FromArgb(214, 222, 245);
+            version.BackColor = Color.Transparent;
+            version.AutoSize = false;
+            version.TextAlign = ContentAlignment.TopRight;
+            version.Size = new Size(120, 20);
+            version.Location = new Point(414, 26);
 
             var sub = new Label();
             sub.Text = "先框选区域，再自动滚动窗口并拼接。交互接近钉钉的滚动截屏：表头和底栏只保留一次。";
@@ -132,7 +144,14 @@ namespace Shiying
             modelButton.Size = new Size(140, 34);
             modelButton.Click += (s, e) => ModelForm.Edit(this);
 
+            var updateButton = Theme.Button("检查更新", false);
+            updateButton.AutoSize = false;
+            updateButton.Location = new Point(232, 537);
+            updateButton.Size = new Size(140, 34);
+            updateButton.Click += (s, e) => CheckUpdate(true);
+
             Controls.Add(title);
+            Controls.Add(version);
             Controls.Add(sub);
             Controls.Add(pickFolder);
             Controls.Add(_savePath);
@@ -152,6 +171,7 @@ namespace Shiying
             Controls.Add(paceLabel);
             Controls.Add(pace);
             Controls.Add(modelButton);
+            Controls.Add(updateButton);
 
             _tray = new NotifyIcon();
             _tray.Icon = Theme.TrayIcon();
@@ -163,11 +183,15 @@ namespace Shiying
             ToolStripItem recordItem = menu.Items.Add("开始录屏", null, (s, e) => ToggleRecord());
             menu.Items.Add("显示主窗口", null, (s, e) => ShowMain());
             menu.Items.Add("翻译模型配置", null, (s, e) => ModelForm.Edit(Visible ? this : null));
+            menu.Items.Add("检查更新 v" + (AppInfo.Version.Length > 0 ? AppInfo.Version : "?"), null, (s, e) => CheckUpdate(true));
+            menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add("退出", null, (s, e) => ExitApp());
             menu.Opening += (s, e) => recordItem.Text = RecordSession.Active ? "停止录屏" : "开始录屏";
             _tray.ContextMenuStrip = menu;
             _tray.DoubleClick += (s, e) => ShowMain();
-            _tray.BalloonTipClicked += (s, e) => OpenTipFile();
+            _tray.BalloonTipClicked += (s, e) => OnBalloonClick();
+
+            Shown += (s, e) => AutoCheckUpdate();
         }
 
         protected override void OnHandleCreated(EventArgs e)
@@ -734,6 +758,153 @@ namespace Shiying
             using (var bar = Theme.AccentBrush(new RectangleF(HelpCard.X, HelpCard.Y + 14, 3, HelpCard.Height - 28)))
             {
                 g.FillRectangle(bar, HelpCard.X, HelpCard.Y + 14, 3, HelpCard.Height - 28);
+            }
+        }
+
+        void OnBalloonClick()
+        {
+            UpdateInfo info = _updateInfo;
+            if (info != null)
+            {
+                _updateInfo = null;
+                RunUpdateFlow(info);
+                return;
+            }
+
+            OpenTipFile();
+        }
+
+        void AutoCheckUpdate()
+        {
+            if (!AppSettings.AutoCheckUpdate)
+            {
+                return;
+            }
+
+            if (AppSettings.LastUpdateCheck != DateTime.MinValue
+                && DateTime.UtcNow - AppSettings.LastUpdateCheck < TimeSpan.FromHours(6))
+            {
+                return;
+            }
+
+            CheckUpdate(false);
+        }
+
+        void CheckUpdate(bool manual)
+        {
+            if (_checkingUpdate)
+            {
+                if (manual)
+                {
+                    Tip("正在检查更新…");
+                }
+
+                return;
+            }
+
+            _checkingUpdate = true;
+            if (manual)
+            {
+                Tip("正在检查更新…");
+            }
+
+            var thread = new Thread(() =>
+            {
+                UpdateInfo info = null;
+                string error = null;
+                try
+                {
+                    info = Updater.Fetch();
+                }
+                catch (Exception ex)
+                {
+                    error = ex.Message;
+                }
+
+                Ui(() =>
+                {
+                    _checkingUpdate = false;
+                    HandleUpdateResult(info, error, manual);
+                });
+            });
+            thread.IsBackground = true;
+            thread.Start();
+        }
+
+        void HandleUpdateResult(UpdateInfo info, string error, bool manual)
+        {
+            AppSettings.LastUpdateCheck = DateTime.UtcNow;
+            AppSettings.Save();
+
+            if (error != null || info == null)
+            {
+                if (manual)
+                {
+                    MessageBox.Show(this, "检查更新失败：" + (error == null ? "未知错误" : error), "拾影", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+
+                return;
+            }
+
+            if (!Updater.IsNewer(info.Version, AppInfo.Version))
+            {
+                if (manual)
+                {
+                    MessageBox.Show(this, "当前已是最新版本 v" + (AppInfo.Version.Length > 0 ? AppInfo.Version : "未知") + "。", "拾影", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+
+                return;
+            }
+
+            if (!manual && AppSettings.SkipVersion == info.Version)
+            {
+                return;
+            }
+
+            if (!manual)
+            {
+                _updateInfo = info;
+                if (_tray != null)
+                {
+                    _tray.ShowBalloonTip(6000, "拾影", "发现新版本 " + info.Display + "，点此更新", ToolTipIcon.Info);
+                }
+
+                return;
+            }
+
+            RunUpdateFlow(info);
+        }
+
+        void RunUpdateFlow(UpdateInfo info)
+        {
+            if (RecordSession.Active)
+            {
+                Tip("正在录屏，请先停止录屏再更新");
+                return;
+            }
+
+            using (var form = new UpdateForm(info))
+            {
+                if (form.ShowDialog(this) == DialogResult.OK)
+                {
+                    ExitApp();
+                }
+            }
+        }
+
+        void Ui(Action action)
+        {
+            if (IsDisposed || !IsHandleCreated)
+            {
+                return;
+            }
+
+            try
+            {
+                BeginInvoke(action);
+            }
+            catch (InvalidOperationException)
+            {
             }
         }
 

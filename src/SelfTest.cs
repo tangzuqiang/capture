@@ -29,6 +29,8 @@ namespace Shiying
             failed += RunCase("llm translator", TestTranslator);
             failed += RunCase("ocr window", TestOcrWindow);
             failed += RunCase("app icon", TestAppIcon);
+            failed += RunCase("update feed", TestUpdateFeed);
+            failed += RunCase("update window", TestUpdateWindow);
             if (failed == 0)
             {
                 Console.WriteLine("SELFTEST OK");
@@ -577,6 +579,65 @@ namespace Shiying
                 {
                     return "icon sizes " + big.Width + " " + small.Width;
                 }
+            }
+
+            return null;
+        }
+
+        static string TestUpdateFeed()
+        {
+            string json = "{\"version\":\"1.2.3\",\"url\":\"http:\\/\\/host\\/shiying\\/a.exe\",\"sha256\":\"ABC\",\"size\":123456,\"notes\":\"修复若干问题\"}";
+            UpdateInfo info = Updater.Parse(json);
+            if (info.Version != "1.2.3") return "version " + info.Version;
+            if (info.Url != "http://host/shiying/a.exe") return "url " + info.Url;
+            if (info.Sha256 != "ABC") return "sha256 " + info.Sha256;
+            if (info.Size != 123456) return "size " + info.Size;
+            if (info.Notes != "修复若干问题") return "notes " + info.Notes;
+
+            if (!Updater.IsNewer("1.2.3", "1.2.2")) return "1.2.3 should be newer than 1.2.2";
+            if (Updater.IsNewer("1.2.3", "1.2.3")) return "same version is not newer";
+            if (Updater.IsNewer("1.2.3", "1.3.0")) return "1.2.3 is not newer than 1.3.0";
+            if (!Updater.IsNewer("2.0.0", "")) return "empty local version";
+
+            try
+            {
+                Updater.Parse("{\"version\":\"1.0.0\"}");
+                return "missing url should fail";
+            }
+            catch (FormatException)
+            {
+            }
+
+            return null;
+        }
+
+        static string TestUpdateWindow()
+        {
+            var info = new UpdateInfo();
+            info.Version = "9.9.9";
+            info.Url = "http://127.0.0.1:1/none.exe";
+            info.Sha256 = "abc";
+            info.Size = 1048576;
+            info.Notes = "自检用";
+
+            using (var form = new UpdateForm(info))
+            {
+                form.CreateControl();
+                if (form.ClientSize.Width < 380 || form.ClientSize.Height < 220)
+                {
+                    return "window too small " + form.ClientSize;
+                }
+
+                bool bar = false;
+                bool button = false;
+                foreach (Control control in form.Controls)
+                {
+                    if (control is ProgressBar) bar = true;
+                    if (control is Button) button = true;
+                }
+
+                if (!bar) return "no progress bar";
+                if (!button) return "no button";
             }
 
             return null;

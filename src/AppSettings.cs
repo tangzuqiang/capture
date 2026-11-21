@@ -27,6 +27,9 @@ namespace Shiying
         public static string LlmApiKey = "";
         public static string LlmModel = "";
         public static string TranslateTarget = "auto";
+        public static bool AutoCheckUpdate = true;
+        public static string SkipVersion = "";
+        public static DateTime LastUpdateCheck = DateTime.MinValue;
 
         public static bool LlmConfigured
         {
@@ -172,6 +175,26 @@ namespace Shiying
                     {
                         TranslateTarget = value.Length > 0 ? value : "auto";
                     }
+                    else if (key == "autoCheckUpdate")
+                    {
+                        bool on;
+                        if (bool.TryParse(value, out on))
+                        {
+                            AutoCheckUpdate = on;
+                        }
+                    }
+                    else if (key == "skipVersion")
+                    {
+                        SkipVersion = value;
+                    }
+                    else if (key == "lastUpdateCheck")
+                    {
+                        long ticks;
+                        if (long.TryParse(value, out ticks) && ticks > 0)
+                        {
+                            LastUpdateCheck = new DateTime(ticks, DateTimeKind.Utc);
+                        }
+                    }
                     else if (key == "gesture" || key == "gestureRgb" || key == "gestureWeb" || key == "gestureRecord")
                     {
                         Keys gesture;
@@ -224,6 +247,9 @@ namespace Shiying
                     + "\r\nllmModel=" + OneLine(LlmModel)
                     + "\r\nllmApiKey=" + Protect(OneLine(LlmApiKey))
                     + "\r\ntranslateTarget=" + OneLine(TranslateTarget)
+                    + "\r\nautoCheckUpdate=" + AutoCheckUpdate
+                    + "\r\nskipVersion=" + OneLine(SkipVersion)
+                    + "\r\nlastUpdateCheck=" + (LastUpdateCheck == DateTime.MinValue ? "0" : LastUpdateCheck.Ticks.ToString())
                     + "\r\n";
                 string temp = path + ".tmp";
                 File.WriteAllText(temp, body, Encoding.UTF8);
