@@ -5,12 +5,14 @@ using System.Drawing.Drawing2D;
 using System.IO;
 using System.Threading;
 using System.Windows.Forms;
+using Shiying.Voice;
 
 namespace Shiying
 {
     sealed class MainForm : Form
     {
         readonly NotifyIcon _tray;
+        VoiceAssistant _voice;
         readonly TextBox[] _hotkeyBoxes = new TextBox[4];
         readonly bool[] _hotkeyReady = new bool[4];
         readonly Label _hotkeyHint;
@@ -183,10 +185,19 @@ namespace Shiying
             ToolStripItem recordItem = menu.Items.Add("开始录屏", null, (s, e) => ToggleRecord());
             menu.Items.Add("显示主窗口", null, (s, e) => ShowMain());
             menu.Items.Add("翻译模型配置", null, (s, e) => ModelForm.Edit(Visible ? this : null));
+            ToolStripItem voiceItem = menu.Items.Add("启动语音助手", null, (s, e) => ToggleVoice());
+            ToolStripItem voiceModelItem = menu.Items.Add("下载语音模型", null, (s, e) => DownloadVoiceModels());
             menu.Items.Add("检查更新 v" + (AppInfo.Version.Length > 0 ? AppInfo.Version : "?"), null, (s, e) => CheckUpdate(true));
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add("退出", null, (s, e) => ExitApp());
-            menu.Opening += (s, e) => recordItem.Text = RecordSession.Active ? "停止录屏" : "开始录屏";
+            menu.Opening += (s, e) =>
+            {
+                recordItem.Text = RecordSession.Active ? "停止录屏" : "开始录屏";
+                voiceItem.Text = (_voice != null && _voice.IsListening) ? "停止语音助手" : "启动语音助手";
+                voiceModelItem.Text = VoiceModelInstaller.Ready(VoiceOptions.DefaultModelsDir())
+                    ? "语音模型（已就绪）"
+                    : "下载语音模型…";
+            };
             _tray.ContextMenuStrip = menu;
             _tray.DoubleClick += (s, e) => ShowMain();
             _tray.BalloonTipClicked += (s, e) => OnBalloonClick();
@@ -267,6 +278,11 @@ namespace Shiying
 
         protected override void OnFormClosed(FormClosedEventArgs e)
         {
+            if (_voice != null)
+            {
+                _voice.Dispose();
+                _voice = null;
+            }
             _tray.Visible = false;
             _tray.Dispose();
             base.OnFormClosed(e);
@@ -346,6 +362,144 @@ namespace Shiying
             if (!OverlayForm.TryStartRecord())
             {
                 OverlayForm.Run(this, true);
+            }
+        }
+
+        // 语音助手：麦克风 -> Vosk 识别 -> 命令匹配，播报用 sherpa-onnx VITS。
+        // 模型不随安装包发布，缺了就弹出下载框（也可从托盘菜单「下载语音模型」进来）。
+        void ToggleVoice()
+        {
+            if (_voice == null)
+            {
+                string models = VoiceOptions.DefaultModelsDir();
+                if (!VoiceModelInstaller.Ready(models))
+                {
+                    if (!VoiceModelForm.Ensure(Visible ? this : null, VoiceModelInstaller.TargetDir()))
+                    {
+                        Tip("语音助手还没装模型，可以从托盘菜单「下载语音模型…」再试");
+                        return;
+                    }
+
+                    // 安装版写不进 Program Files，模型会落在 %LOCALAPPDATA%，重新探测一次
+                    models = VoiceOptions.DefaultModelsDir();
+                }
+
+                VoiceOptions options = VoiceOptions.Load(models);
+                string missing = options.MissingHint();
+                if (missing.Length > 0)
+                {
+                    Tip(missing);
+                    return;
+                }
+
+                _voice = new VoiceAssistant(options);
+                _voice.CommandRecognized += OnVoiceCommand;
+                _voice.Error += delegate (object s, string message)
+                {
+                    RunOnUi(delegate { Tip("语音助手：" + message); });
+                };
+            }
+
+            if (_voice.IsListening)
+            {
+                _voice.Stop();
+                Tip("语音助手已停止");
+                return;
+            }
+
+            _voice.Start(-1);
+            if (_voice.IsListening)
+            {
+                Tip("语音助手已开启：可以说 截图 / 开始录制 / 停止录制 / 取消");
+                _voice.Say("语音助手已开启");
+            }
+        }
+
+        void OnVoiceCommand(object sender, VoiceCommandMatch match)
+        {
+            RunOnUi(delegate { HandleVoiceCommand(match); });
+        }
+
+        // 托盘菜单：手动进入模型下载（用户可能想提前下好，或者换了电脑）
+        void DownloadVoiceModels()
+        {
+            string target = VoiceModelInstaller.TargetDir();
+            if (VoiceModelInstaller.Ready(target))
+            {
+                Tip("语音模型已就绪：" + target);
+                return;
+            }
+
+            VoiceModelForm.Ensure(Visible ? this : null, target);
+        }
+
+        void HandleVoiceCommand(VoiceCommandMatch match)
+        {
+            if (match == null)
+            {
+                return;
+            }
+
+            if (_voice != null && RecordSession.Active)
+            {
+                // 录屏中不再响应截图类命令，避免两套界面打架
+                if (match.Intent == "capture" || match.Intent == "record_start")
+                {
+                    Tip("正在录屏，先停止录屏再说");
+                    return;
+                }
+            }
+
+            switch (match.Intent)
+            {
+                case "capture":
+                    StartCapture();
+                    break;
+                case "record_start":
+                    if (!RecordSession.Active)
+                    {
+                        ToggleRecord();
+                    }
+                    break;
+                case "record_stop":
+                    if (RecordSession.Active)
+                    {
+                        ToggleRecord();
+                    }
+                    break;
+                case "stop_talking":
+                case "cancel":
+                    if (_voice != null)
+                    {
+                        _voice.ShutUp();
+                    }
+                    break;
+                case "save":
+                    Tip("请在截图/录屏界面里保存，或按 Enter");
+                    break;
+                case "ocr":
+                    Tip("先截图，再到结果窗口点文字识别");
+                    break;
+            }
+        }
+
+        void RunOnUi(Action action)
+        {
+            if (action == null)
+            {
+                return;
+            }
+            if (!IsHandleCreated)
+            {
+                return;
+            }
+            if (InvokeRequired)
+            {
+                BeginInvoke(action);
+            }
+            else
+            {
+                action();
             }
         }
 

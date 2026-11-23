@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Text;
 using System.Windows.Forms;
+using Shiying.Voice;
 
 namespace Shiying
 {
@@ -55,6 +56,32 @@ namespace Shiying
             if (args != null && args.Length == 3 && args[0] == "--ocr")
             {
                 Environment.Exit(RunOcrFile(args[1], args[2]));
+            }
+
+            // 只为了本地看模型下载框（不点「开始下载」不会联网）
+            if (HasArg(args, "--voicemodelsui"))
+            {
+                try
+                {
+                    Application.EnableVisualStyles();
+                    using (var form = new VoiceModelForm(VoiceModelInstaller.TargetDir()))
+                    {
+                        Application.Run(form);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(ex.Message, "拾影", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+
+                return;
+            }
+
+            // 命令行下载语音模型：--voicemodels [目录]，不带目录就用默认位置
+            if (args != null && HasArg(args, "--voicemodels"))
+            {
+                string dir = args.Length >= 2 && !args[1].StartsWith("-", StringComparison.Ordinal) ? args[1] : null;
+                Environment.Exit(RunLogged("bin\\voicemodels.log", () => RunVoiceModels(dir)));
             }
 
             Application.EnableVisualStyles();
@@ -160,6 +187,45 @@ namespace Shiying
 
                 Console.WriteLine("OK " + Updater.InstallerPath + " " + info.Size + " bytes");
                 return 0;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("ERROR " + ex.GetType().Name + " " + ex.Message);
+                return 1;
+            }
+        }
+
+        // 命令行入口：和托盘菜单「下载语音模型…」走同一套逻辑，方便脚本/绿色版批量装。
+        static int RunVoiceModels(string dir)
+        {
+            try
+            {
+                string models = string.IsNullOrEmpty(dir) ? Shiying.Voice.VoiceModelInstaller.TargetDir() : Path.GetFullPath(dir);
+                Console.WriteLine("models=" + models);
+                if (Shiying.Voice.VoiceModelInstaller.Ready(models))
+                {
+                    Console.WriteLine("OK already ready");
+                    return 0;
+                }
+
+                long lastPercent = -1;
+                Shiying.Voice.VoiceModelInstaller.Install(models,
+                    text => Console.WriteLine(text),
+                    (done, total) =>
+                    {
+                        long percent = total > 0 ? done * 100 / total : -1;
+                        if (percent != lastPercent)
+                        {
+                            lastPercent = percent;
+                            Console.WriteLine(percent >= 0
+                                ? "  " + percent + "% " + (done / 1048576.0).ToString("0.0") + "/" + (total / 1048576.0).ToString("0.0") + " MB"
+                                : "  " + (done / 1048576.0).ToString("0.0") + " MB");
+                        }
+                    },
+                    () => false);
+
+                Console.WriteLine(Shiying.Voice.VoiceModelInstaller.Ready(models) ? "OK" : "FAIL models incomplete");
+                return Shiying.Voice.VoiceModelInstaller.Ready(models) ? 0 : 1;
             }
             catch (Exception ex)
             {

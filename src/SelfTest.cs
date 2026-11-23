@@ -5,6 +5,7 @@ using System.Drawing.Imaging;
 using System.Drawing.Text;
 using System.IO;
 using System.Windows.Forms;
+using Shiying.Voice;
 
 namespace Shiying
 {
@@ -32,6 +33,7 @@ namespace Shiying
             failed += RunCase("app icon", TestAppIcon);
             failed += RunCase("update feed", TestUpdateFeed);
             failed += RunCase("update window", TestUpdateWindow);
+            failed += RunCase("voice models", TestVoiceModels);
             if (failed == 0)
             {
                 Console.WriteLine("SELFTEST OK");
@@ -701,6 +703,87 @@ namespace Shiying
 
                 if (!bar) return "no progress bar";
                 if (!button) return "no button";
+            }
+
+            return null;
+        }
+
+        // 离线可用：只验模型探测逻辑（目录缺/有）和下载框布局，不联网。
+        static string TestVoiceModels()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "shiying-voicetest-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                Directory.CreateDirectory(root);
+                if (!VoiceModelInstaller.NeedVosk(root)) return "empty dir should need vosk";
+                if (!VoiceModelInstaller.NeedVits(root)) return "empty dir should need vits";
+                if (VoiceModelInstaller.Ready(root)) return "empty dir should not be ready";
+                if (VoiceModelInstaller.PendingBytes(root) <= 0) return "pending bytes should be > 0";
+
+                // 伪造一个最小 vosk 目录（只按 am/conf 探测）
+                string vosk = Path.Combine(root, "vosk", "vosk-model-small-cn-0.22");
+                Directory.CreateDirectory(Path.Combine(vosk, "am"));
+                Directory.CreateDirectory(Path.Combine(vosk, "conf"));
+                if (VoiceModelInstaller.NeedVosk(root)) return "vosk not detected";
+                if (VoiceOptions.FindVoskModel(root) != vosk) return "FindVoskModel " + VoiceOptions.FindVoskModel(root);
+
+                // 伪造 vits：onnx + tokens
+                string vits = Path.Combine(root, "vits", "vits-zh-hf-fanchen-C");
+                Directory.CreateDirectory(vits);
+                File.WriteAllText(Path.Combine(vits, "model.onnx"), "x");
+                File.WriteAllText(Path.Combine(vits, "tokens.txt"), "x");
+                if (VoiceModelInstaller.NeedVits(root)) return "vits not detected";
+                if (!VoiceModelInstaller.Ready(root)) return "should be ready";
+                if (VoiceModelInstaller.PendingBytes(root) != 0) return "pending should be 0";
+
+                VoiceOptions opt = VoiceOptions.Load(root);
+                if (!opt.HasVosk || !opt.HasVits) return "options not detected";
+                if (opt.MissingHint().Length != 0) return "hint not empty";
+                if (opt.Phrases.Count == 0) return "no default phrases";
+            }
+            finally
+            {
+                try
+                {
+                    Directory.Delete(root, true);
+                }
+                catch (IOException)
+                {
+                }
+            }
+
+            string models = Path.Combine(Path.GetTempPath(), "shiying-voiceui-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                using (var form = new VoiceModelForm(models))
+                {
+                    form.CreateControl();
+                    if (form.ClientSize.Width < 400 || form.ClientSize.Height < 220)
+                    {
+                        return "window too small " + form.ClientSize;
+                    }
+
+                    bool bar = false;
+                    bool go = false;
+                    foreach (Control control in form.Controls)
+                    {
+                        if (control is ProgressBar) bar = true;
+                        if (control is Button && control.Text.Length > 0) go = true;
+                    }
+
+                    if (!bar) return "no progress bar";
+                    if (!go) return "no button";
+                }
+            }
+            finally
+            {
+                try
+                {
+                    if (Directory.Exists(models)) Directory.Delete(models, true);
+                }
+                catch (IOException)
+                {
+                }
             }
 
             return null;
