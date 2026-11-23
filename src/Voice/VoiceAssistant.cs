@@ -23,6 +23,7 @@ namespace Shiying.Voice
         public string Phrase;          // 命中的说法
         public double Confidence;      // 识别置信度
         public bool Exact;             // 是否完全相等/包含
+        public int Value = -1;         // 带数值的命令参数（如音量 0-100）
     }
 
     // 语音命令助手：16k 单声道采集 -> Vosk 识别 -> 命令匹配，播报交给 VoiceSpeaker。
@@ -39,6 +40,7 @@ namespace Shiying.Voice
         VoskRecognizer _rec;
         bool _disposed;
         VoiceState _state = VoiceState.Idle;
+        DateTime _wakeUntilUtc = DateTime.MinValue;
 
         public event EventHandler<string> PartialText;                       // 边说边出的中间结果
         public event EventHandler<VoiceCommandMatch> CommandRecognized;       // 命中命令
@@ -153,6 +155,11 @@ namespace Shiying.Voice
             _speaker.Stop();
         }
 
+        public void ExitWakeState()
+        {
+            _wakeUntilUtc = DateTime.MinValue;
+        }
+
         // 中文小模型的词表是按字/词条构建的，实测任何多字说法都会判成"词表外"，
         // 所以这里不做 Kaldi 词表约束，改为自由识别 + 命令匹配器（VoiceCommandMatcher）。
         VoskRecognizer CreateRecognizer()
@@ -262,46 +269,81 @@ namespace Shiying.Voice
             }
 
             double conf = ReadConfidence(json);
+            string commandText = text;
+            string normalized = VoiceCommandMatcher.Normalize(text);
+            string wakeWord = VoiceCommandMatcher.Normalize(_opt.WakeWord);
+            bool prefixed = wakeWord.Length > 0
+                && normalized.StartsWith(wakeWord, StringComparison.Ordinal);
+
+            if (prefixed)
+            {
+                commandText = normalized.Substring(wakeWord.Length);
+                _wakeUntilUtc = DateTime.UtcNow.AddSeconds(_opt.WakeSeconds);
+            }
+            else if (wakeWord.Length > 0 && DateTime.UtcNow > _wakeUntilUtc)
+            {
+                return;
+            }
+
             if (conf > 0 && conf < _opt.MinConfidence)
             {
-                EventHandler<string> heardLow = Heard;
-                if (heardLow != null)
-                {
-                    try
-                    {
-                        heardLow(this, text);
-                    }
-                    catch (Exception)
-                    {
-                    }
-                }
+                _wakeUntilUtc = DateTime.UtcNow.AddSeconds(_opt.WakeSeconds);
+                RaiseHeard(text);
                 return;
             }
 
-            VoiceCommandMatch match = VoiceCommandMatcher.Match(text, _opt.Phrases);
+            if (commandText.Length == 0)
+            {
+                RaiseCommand(new VoiceCommandMatch
+                {
+                    Text = text,
+                    Intent = "wake",
+                    Phrase = _opt.WakeWord,
+                    Exact = true,
+                    Confidence = conf
+                });
+                return;
+            }
+
+            VoiceCommandMatch match = VoiceCommandMatcher.Match(commandText, _opt.Phrases);
             if (match == null)
             {
-                EventHandler<string> handler = Heard;
-                if (handler != null)
-                {
-                    try
-                    {
-                        handler(this, text);
-                    }
-                    catch (Exception)
-                    {
-                    }
-                }
+                _wakeUntilUtc = DateTime.UtcNow.AddSeconds(_opt.WakeSeconds);
+                RaiseHeard(text);
                 return;
             }
 
+            _wakeUntilUtc = string.Equals(match.Intent, "wake_exit", StringComparison.Ordinal)
+                ? DateTime.MinValue
+                : DateTime.UtcNow.AddSeconds(_opt.WakeSeconds);
+            match.Text = text;
             match.Confidence = conf;
+            RaiseCommand(match);
+        }
+
+        void RaiseCommand(VoiceCommandMatch match)
+        {
             EventHandler<VoiceCommandMatch> cmd = CommandRecognized;
             if (cmd != null)
             {
                 try
                 {
                     cmd(this, match);
+                }
+                catch (Exception)
+                {
+                }
+            }
+        }
+
+        void RaiseHeard(string text)
+        {
+            EventHandler<string> handler = Heard;
+            if (handler != null)
+            {
+                try
+                {
+                    handler(this, text);
                 }
                 catch (Exception)
                 {
@@ -449,6 +491,13 @@ namespace Shiying.Voice
                 return null;
             }
 
+            VoiceCommandMatch special = MatchVolume(norm);
+            if (special != null)
+            {
+                special.Text = text;
+                return special;
+            }
+
             // 说法长的优先，避免"停止"抢走"停止录制"
             List<VoicePhrase> sorted = new List<VoicePhrase>(phrases);
             sorted.Sort(delegate (VoicePhrase a, VoicePhrase b)
@@ -470,7 +519,8 @@ namespace Shiying.Voice
                     return Build(text, p, phrase, true);
                 }
                 // 长句里顺带出现关键词不算命令，避免聊天时误触发
-                if (phrase.Length > bestLen && (norm.Length - phrase.Length) <= 3
+                if (!string.Equals(p.Intent, "shutdown", StringComparison.Ordinal)
+                    && phrase.Length > bestLen && (norm.Length - phrase.Length) <= 3
                     && norm.IndexOf(phrase, StringComparison.Ordinal) >= 0)
                 {
                     best = p;
@@ -489,7 +539,7 @@ namespace Shiying.Voice
             foreach (VoicePhrase p in sorted)
             {
                 string phrase = Normalize(p.Phrase);
-                if (phrase.Length < 3)
+                if (phrase.Length < 3 || string.Equals(p.Intent, "shutdown", StringComparison.Ordinal))
                 {
                     continue;
                 }
@@ -514,6 +564,79 @@ namespace Shiying.Voice
             }
 
             return null;
+        }
+
+        static VoiceCommandMatch MatchVolume(string norm)
+        {
+            if (norm == "声音大一点" || norm == "声音大点" || norm == "音量大一点" || norm == "音量大点")
+            {
+                return Special("volume_up", norm, 20);
+            }
+            if (norm == "声音小一点" || norm == "声音小点" || norm == "音量小一点" || norm == "音量小点")
+            {
+                return Special("volume_down", norm, 20);
+            }
+
+            string number = null;
+            if (norm.StartsWith("声音", StringComparison.Ordinal))
+            {
+                number = norm.Substring(2);
+            }
+            else if (norm.StartsWith("音量", StringComparison.Ordinal))
+            {
+                number = norm.Substring(2);
+            }
+
+            if (number != null && TryReadNumber(number, out int value) && value >= 0 && value <= 100)
+            {
+                return Special("volume_set", norm, value);
+            }
+            return null;
+        }
+
+        static VoiceCommandMatch Special(string intent, string phrase, int value)
+        {
+            return new VoiceCommandMatch
+            {
+                Intent = intent,
+                Phrase = phrase,
+                Exact = true,
+                Confidence = 1.0,
+                Value = value
+            };
+        }
+
+        // Vosk 可能输出“声音50”或“声音五十”，两种都接受。
+        static bool TryReadNumber(string text, out int value)
+        {
+            if (int.TryParse(text, out value))
+            {
+                return true;
+            }
+
+            Dictionary<char, int> digits = new Dictionary<char, int>
+            {
+                ['零'] = 0, ['〇'] = 0, ['一'] = 1, ['二'] = 2, ['两'] = 2,
+                ['三'] = 3, ['四'] = 4, ['五'] = 5, ['六'] = 6,
+                ['七'] = 7, ['八'] = 8, ['九'] = 9
+            };
+            if (text == "十") { value = 10; return true; }
+            if (text == "一百") { value = 100; return true; }
+
+            int ten = text.IndexOf('十');
+            if (ten >= 0 && text.LastIndexOf('十') == ten)
+            {
+                int tens = ten == 0 ? 1 : (digits.TryGetValue(text[ten - 1], out int t) ? t : -1);
+                int ones = ten == text.Length - 1 ? 0 : (digits.TryGetValue(text[ten + 1], out int o) ? o : -1);
+                if (tens >= 0 && ones >= 0 && text.Length <= 3)
+                {
+                    value = tens * 10 + ones;
+                    return true;
+                }
+            }
+
+            value = -1;
+            return false;
         }
 
         static VoiceCommandMatch Build(string original, VoicePhrase p, string phrase, bool exact)

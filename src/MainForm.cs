@@ -5,6 +5,7 @@ using System.Drawing.Drawing2D;
 using System.IO;
 using System.Threading;
 using System.Windows.Forms;
+using NAudio.CoreAudioApi;
 using Shiying.Voice;
 
 namespace Shiying
@@ -394,6 +395,16 @@ namespace Shiying
 
                 _voice = new VoiceAssistant(options);
                 _voice.CommandRecognized += OnVoiceCommand;
+                _voice.Heard += delegate (object s, string text)
+                {
+                    RunOnUi(delegate
+                    {
+                        if (_voice != null)
+                        {
+                            _voice.Say("无效指令");
+                        }
+                    });
+                };
                 _voice.Error += delegate (object s, string message)
                 {
                     RunOnUi(delegate { Tip("语音助手：" + message); });
@@ -410,7 +421,7 @@ namespace Shiying
             _voice.Start(-1);
             if (_voice.IsListening)
             {
-                Tip("语音助手已开启：可以说 截图 / 开始录制 / 停止录制 / 取消");
+                Tip("语音助手已开启：请先说“超级计算机”，再说截图、关机或声音大小");
                 _voice.Say("语音助手已开启");
             }
         }
@@ -439,6 +450,7 @@ namespace Shiying
             {
                 return;
             }
+            bool acknowledge = false;
 
             if (_voice != null && RecordSession.Active)
             {
@@ -452,19 +464,28 @@ namespace Shiying
 
             switch (match.Intent)
             {
+                case "wake":
+                    if (_voice != null)
+                    {
+                        _voice.Say("您说");
+                    }
+                    break;
                 case "capture":
                     StartCapture();
+                    acknowledge = true;
                     break;
                 case "record_start":
                     if (!RecordSession.Active)
                     {
                         ToggleRecord();
+                        acknowledge = true;
                     }
                     break;
                 case "record_stop":
                     if (RecordSession.Active)
                     {
                         ToggleRecord();
+                        acknowledge = true;
                     }
                     break;
                 case "stop_talking":
@@ -474,13 +495,88 @@ namespace Shiying
                         _voice.ShutUp();
                     }
                     break;
+                case "wake_exit":
+                    if (_voice != null)
+                    {
+                        _voice.ExitWakeState();
+                    }
+                    acknowledge = true;
+                    break;
                 case "save":
                     Tip("请在截图/录屏界面里保存，或按 Enter");
+                    acknowledge = true;
                     break;
                 case "ocr":
                     Tip("先截图，再到结果窗口点文字识别");
+                    acknowledge = true;
+                    break;
+                case "shutdown":
+                    Process.Start(new ProcessStartInfo("shutdown.exe", "/s /t 0")
+                    {
+                        UseShellExecute = false,
+                        CreateNoWindow = true
+                    });
+                    acknowledge = true;
+                    break;
+                case "volume_up":
+                    acknowledge = ChangeVolume(match.Value);
+                    break;
+                case "volume_down":
+                    acknowledge = ChangeVolume(-match.Value);
+                    break;
+                case "volume_set":
+                    acknowledge = SetVolume(match.Value);
                     break;
             }
+
+            if (acknowledge && _voice != null)
+            {
+                _voice.Say("好的");
+            }
+        }
+
+        bool ChangeVolume(int delta)
+        {
+            try
+            {
+                using (MMDeviceEnumerator devices = new MMDeviceEnumerator())
+                using (MMDevice device = devices.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia))
+                {
+                    int current = (int)Math.Round(device.AudioEndpointVolume.MasterVolumeLevelScalar * 100);
+                    SetVolume(device, current + delta);
+                }
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Tip("调整音量失败：" + ex.Message);
+                return false;
+            }
+        }
+
+        bool SetVolume(int value)
+        {
+            try
+            {
+                using (MMDeviceEnumerator devices = new MMDeviceEnumerator())
+                using (MMDevice device = devices.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia))
+                {
+                    SetVolume(device, value);
+                }
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Tip("调整音量失败：" + ex.Message);
+                return false;
+            }
+        }
+
+        void SetVolume(MMDevice device, int value)
+        {
+            int volume = Math.Max(0, Math.Min(100, value));
+            device.AudioEndpointVolume.MasterVolumeLevelScalar = volume / 100f;
+            Tip("系统音量：" + volume);
         }
 
         void RunOnUi(Action action)

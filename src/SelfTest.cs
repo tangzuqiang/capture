@@ -33,6 +33,7 @@ namespace Shiying
             failed += RunCase("app icon", TestAppIcon);
             failed += RunCase("update feed", TestUpdateFeed);
             failed += RunCase("update window", TestUpdateWindow);
+            failed += RunCase("voice commands", TestVoiceCommands);
             failed += RunCase("voice models", TestVoiceModels);
             if (failed == 0)
             {
@@ -709,6 +710,33 @@ namespace Shiying
         }
 
         // 离线可用：只验模型探测逻辑（目录缺/有）和下载框布局，不联网。
+        static string TestVoiceCommands()
+        {
+            List<VoicePhrase> phrases = VoiceOptions.DefaultPhrases();
+
+            VoiceCommandMatch shutdown = VoiceCommandMatcher.Match("关闭电脑立即执行", phrases);
+            if (shutdown == null || shutdown.Intent != "shutdown") return "shutdown";
+            if (VoiceCommandMatcher.Match("不要关机", phrases) != null) return "unsafe shutdown match";
+
+            VoiceCommandMatch exit = VoiceCommandMatcher.Match("退出", phrases);
+            if (exit == null || exit.Intent != "wake_exit") return "wake exit";
+
+            VoiceCommandMatch up = VoiceCommandMatcher.Match("声音大一点", phrases);
+            if (up == null || up.Intent != "volume_up" || up.Value != 20) return "volume up";
+
+            VoiceCommandMatch down = VoiceCommandMatcher.Match("声音小点", phrases);
+            if (down == null || down.Intent != "volume_down" || down.Value != 20) return "volume down";
+
+            VoiceCommandMatch setDigit = VoiceCommandMatcher.Match("声音75", phrases);
+            if (setDigit == null || setDigit.Intent != "volume_set" || setDigit.Value != 75) return "volume 75";
+
+            VoiceCommandMatch setChinese = VoiceCommandMatcher.Match("声音一百", phrases);
+            if (setChinese == null || setChinese.Intent != "volume_set" || setChinese.Value != 100) return "volume 100";
+
+            if (VoiceCommandMatcher.Match("声音101", phrases) != null) return "volume range";
+            return null;
+        }
+
         static string TestVoiceModels()
         {
             string root = Path.Combine(Path.GetTempPath(), "shiying-voicetest-" + Guid.NewGuid().ToString("N"));

@@ -31,6 +31,9 @@ namespace Shiying.Voice
         public bool MuteWhileSpeaking = true;
         // 识别置信度下限，低于它的结果不再向上抛
         public double MinConfidence = 0.65;
+        // 命令必须以唤醒词开头，或在单独说出唤醒词后的 10 秒内说出
+        public string WakeWord = "超级计算机";
+        public int WakeSeconds = 10;
 
         public string ModelsDir;
         public List<VoicePhrase> Phrases = new List<VoicePhrase>();
@@ -148,6 +151,7 @@ namespace Shiying.Voice
             VitsTokens = ReadString(root, "vitsTokens", VitsTokens);
             VitsLexicon = ReadString(root, "vitsLexicon", VitsLexicon);
             VitsDictDir = ReadString(root, "vitsDictDir", VitsDictDir);
+            WakeWord = ReadString(root, "wakeWord", WakeWord);
 
             if (root.TryGetProperty("speakerId", out JsonElement sid) && sid.ValueKind == JsonValueKind.Number)
             {
@@ -164,6 +168,10 @@ namespace Shiying.Voice
             if (root.TryGetProperty("minConfidence", out JsonElement mc) && mc.ValueKind == JsonValueKind.Number)
             {
                 MinConfidence = mc.GetDouble();
+            }
+            if (root.TryGetProperty("wakeSeconds", out JsonElement ws) && ws.ValueKind == JsonValueKind.Number)
+            {
+                WakeSeconds = Math.Max(1, ws.GetInt32());
             }
         }
 
@@ -259,8 +267,10 @@ namespace Shiying.Voice
             AddPhrases(list, "record_stop", new string[] { "停止录制", "结束录制", "停止录屏" });
             AddPhrases(list, "ocr", new string[] { "文字识别", "识别文字", "提取文字" });
             AddPhrases(list, "save", new string[] { "保存", "保存一下" });
-            AddPhrases(list, "cancel", new string[] { "取消", "退出", "关闭" });
+            AddPhrases(list, "cancel", new string[] { "取消", "关闭" });
+            AddPhrases(list, "wake_exit", new string[] { "退出" });
             AddPhrases(list, "stop_talking", new string[] { "别说了", "安静", "停止播报" });
+            AddPhrases(list, "shutdown", new string[] { "关机", "关闭电脑", "关闭电脑立即执行" });
             return list;
         }
 
