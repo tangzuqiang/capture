@@ -1,6 +1,9 @@
 @echo off
 setlocal
-cd /d "%~dp0"
+set "ROOT=%~dp0"
+if "%ROOT:~0,4%"=="\\?\" set "ROOT=%ROOT:~4%"
+cd /d "%ROOT%" || exit /b 1
+set "ROOT="
 
 rem ============= release target: edit these lines only =============
 set "PUB_HOST=root@111.230.247.111"

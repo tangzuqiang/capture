@@ -108,7 +108,7 @@ namespace Shiying
             PenButton = MakeIcon(ToolGlyph.Pen, "画笔");
             DoodleButton = MakeIcon(ToolGlyph.Doodle, "涂鸦");
             TextButton = MakeIcon(ToolGlyph.Text, "文字");
-            PinButton = MakeIcon(ToolGlyph.Pin, "钉");
+            PinButton = MakeIcon(ToolGlyph.Pin, "钉图");
             UndoButton = MakeIcon(ToolGlyph.Undo, "撤回");
             OcrButton = MakeIcon(ToolGlyph.Ocr, "识别文字");
             TranslateButton = MakeIcon(ToolGlyph.Translate, "翻译");
@@ -272,7 +272,7 @@ namespace Shiying
             Tip(tip, PenButton, "画笔");
             Tip(tip, DoodleButton, "涂鸦");
             Tip(tip, TextButton, "文字");
-            Tip(tip, PinButton, "钉");
+            Tip(tip, PinButton, "钉图（按住图片可拖动，右键关闭）");
             Tip(tip, UndoButton, "撤回");
             Tip(tip, OcrButton, "识别文字");
             Tip(tip, TranslateButton, "翻译");

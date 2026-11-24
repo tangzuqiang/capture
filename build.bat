@@ -1,11 +1,12 @@
 @echo off
 setlocal
-cd /d "%~dp0"
+set "ROOT=%~dp0"
+if "%ROOT:~0,4%"=="\\?\" set "ROOT=%ROOT:~4%"
+cd /d "%ROOT%" || exit /b 1
+set "ROOT="
 
-rem 开发用编译脚本：产出 bin\Shiying.exe，支持 --test 跑一遍自检。
-rem 自从加了语音助手（NAudio / Vosk / sherpa-onnx 都是 NuGet 包），
-rem 老的 csc + .NET Framework 4.0 那条路已经编不动了，统一走 dotnet SDK。
-rem 正式发布仍然用 setup.bat（dotnet publish + Inno Setup + 上传）。
+rem Development build: writes bin\Shiying.exe. Pass --test to run self-tests.
+rem Voice dependencies require the dotnet SDK; release publishing uses setup.bat.
 
 set "DOTNET="
 if exist "%ProgramFiles%\dotnet\dotnet.exe" set "DOTNET=%ProgramFiles%\dotnet\dotnet.exe"
@@ -20,7 +21,7 @@ if exist bin rmdir /s /q bin
 "%DOTNET%" publish "Shiying.csproj" -c Release -o "bin"
 if errorlevel 1 exit /b 1
 
-rem 版本号取自 Shiying.csproj，写进 version.txt 供窗口标题显示（build.bat 只编译不递增）
+rem Read the current version without incrementing it.
 set "VER="
 for /f "delims=" %%v in ('powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\bump-version.ps1" -Print') do set "VER=%%v"
 if defined VER >"bin\version.txt" echo %VER%

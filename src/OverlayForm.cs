@@ -215,7 +215,7 @@ namespace Shiying
             _toolbar.PenButton.Click += (s, e) => SetTool(AnnotateTool.Pen);
             _toolbar.DoodleButton.Click += (s, e) => SetTool(AnnotateTool.Doodle);
             _toolbar.TextButton.Click += (s, e) => SetTool(AnnotateTool.Text);
-            _toolbar.PinButton.Click += (s, e) => SetTool(AnnotateTool.Pin);
+            _toolbar.PinButton.Click += (s, e) => PinStill();
             _toolbar.OcrButton.Click += (s, e) => RecognizeText(false);
             _toolbar.TranslateButton.Click += (s, e) => RecognizeText(true);
             _toolbar.UndoButton.Click += (s, e) => Undo();
@@ -653,13 +653,9 @@ namespace Shiying
                 {
                     text = "在工具栏输入最多 16 个字，再点到画面上";
                 }
-                else if (_tool == AnnotateTool.Pin)
-                {
-                    text = "点击画面钉上标记    再点图标退出";
-                }
                 else if (_hasSel)
                 {
-                    text = "悬停图标可看名称    Enter 复制    ↓→ 长图    M 手动长图    Esc 取消";
+                    text = "悬停图标可看名称    钉图后可拖动    Enter 复制    ↓→ 长图    Esc 取消";
                 }
                 else if (_recordMode)
                 {
@@ -988,6 +984,42 @@ namespace Shiying
             }
             catch (Exception ex)
             {
+                MessageBox.Show(this, ex.Message, "拾影", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
+        void PinStill()
+        {
+            if (_busy || !_hasSel)
+            {
+                return;
+            }
+
+            Bitmap crop = null;
+            PinnedImageForm pinned = null;
+            try
+            {
+                crop = Markup.Compose(_shot, _sel, _marks);
+                pinned = new PinnedImageForm(
+                    crop,
+                    new Point(_screenBounds.X + _sel.X, _screenBounds.Y + _sel.Y));
+                pinned.Show();
+                crop = null;
+                pinned = null;
+                Close();
+            }
+            catch (Exception ex)
+            {
+                if (pinned != null)
+                {
+                    pinned.Dispose();
+                    crop = null;
+                }
+                else if (crop != null)
+                {
+                    crop.Dispose();
+                }
+
                 MessageBox.Show(this, ex.Message, "拾影", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
