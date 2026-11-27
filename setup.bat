@@ -13,7 +13,7 @@ set "PUB_DIR=/opt/nginx/html/shiying"
 set "GIT_REMOTE=origin"
 set "GIT_BRANCH=master"
 set "PUB_HOSTNAME=%PUB_HOST:*@=%"
-set "PUB_BASEURL=http://%PUB_HOSTNAME%/shiying"
+set "PUB_BASEURL=http://%PUB_HOSTNAME%:8001/shiying"
 rem ==========================================================================
 
 set "DOTNET=%ProgramFiles%\dotnet\dotnet.exe"
