@@ -170,7 +170,7 @@ namespace Shiying
             try
             {
                 ScreenGrab.CopyText(_box.Text ?? "");
-                ShowStatus(Editing ? "已复制当前内容" : "已复制全部文字", false);
+                Close();
             }
             catch (Exception ex)
             {

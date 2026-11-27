@@ -128,17 +128,21 @@ namespace Shiying
             tools.Controls.Add(PenButton);
             tools.Controls.Add(DoodleButton);
             tools.Controls.Add(TextButton);
+            tools.Controls.Add(Sep(18));
             tools.Controls.Add(PinButton);
             tools.Controls.Add(UndoButton);
             tools.Controls.Add(Sep(18));
             tools.Controls.Add(OcrButton);
             tools.Controls.Add(TranslateButton);
+            tools.Controls.Add(Sep(18));
             tools.Controls.Add(CopyButton);
             tools.Controls.Add(SaveButton);
+            tools.Controls.Add(Sep(18));
             tools.Controls.Add(VerticalButton);
             tools.Controls.Add(HorizontalButton);
             tools.Controls.Add(ScrollButton);
             tools.Controls.Add(RecordButton);
+            tools.Controls.Add(Sep(18));
             tools.Controls.Add(DismissButton);
 
             _phraseHost = new Panel();
@@ -542,7 +546,6 @@ namespace Shiying
             g.PixelOffsetMode = PixelOffsetMode.HighQuality;
             g.Clear(Theme.Surface);
             var bounds = new RectangleF(1.5f, 1.5f, Width - 3f, Height - 3f);
-            Color hole = Theme.Surface;
             using (GraphicsPath path = Theme.Round(bounds, 7))
             {
                 if (_active)
@@ -551,32 +554,43 @@ namespace Shiying
                     {
                         g.FillPath(brush, path);
                     }
-
-                    hole = Theme.Accent;
                 }
                 else if (_hover)
                 {
-                    using (var brush = new SolidBrush(Theme.SurfaceHigh))
+                    using (LinearGradientBrush brush = Theme.AccentBrush(bounds, 42))
                     {
                         g.FillPath(brush, path);
                     }
+                }
+                else if (_accent)
+                {
+                    using (var brush = new SolidBrush(Color.FromArgb(22, Theme.Accent)))
+                    {
+                        g.FillPath(brush, path);
+                    }
+                }
 
-                    hole = Theme.SurfaceHigh;
+                if ((_hover || _accent) && !_active)
+                {
+                    using (var border = new Pen(Color.FromArgb(_hover ? 105 : 55, Theme.Accent), 1f))
+                    {
+                        g.DrawPath(border, path);
+                    }
                 }
             }
 
-            Color ink = _active ? Color.White : (_accent ? Theme.Accent : (_hover ? Color.White : Theme.Text));
-            using (var pen = new Pen(ink, 1.6f))
+            Color ink = _active ? Color.White : (_accent ? Theme.Accent : (_hover ? Color.White : Theme.SubText));
+            using (var pen = new Pen(ink, 1.75f))
             using (var brush = new SolidBrush(ink))
             {
                 pen.StartCap = LineCap.Round;
                 pen.EndCap = LineCap.Round;
                 pen.LineJoin = LineJoin.Round;
-                DrawGlyph(g, pen, brush, _glyph, hole);
+                DrawGlyph(g, pen, brush, _glyph);
             }
         }
 
-        static void DrawGlyph(Graphics g, Pen pen, Brush brush, ToolGlyph glyph, Color hole)
+        static void DrawGlyph(Graphics g, Pen pen, Brush brush, ToolGlyph glyph)
         {
             if (glyph == ToolGlyph.Rect)
             {
@@ -605,13 +619,13 @@ namespace Shiying
             }
             else if (glyph == ToolGlyph.Doodle)
             {
-                g.DrawCurve(pen, new PointF[]
+                using (GraphicsPath frame = Theme.Round(new RectangleF(8.5f, 7.5f, 15, 17), 2.5f))
                 {
-                    new PointF(7, 20),
-                    new PointF(12, 10),
-                    new PointF(16, 22),
-                    new PointF(24, 11)
-                }, 0.55f);
+                    g.DrawPath(pen, frame);
+                }
+
+                g.FillRectangle(brush, 11.5f, 10.5f, 5.5f, 5.5f);
+                g.FillRectangle(brush, 17.5f, 16.5f, 3.5f, 4.5f);
             }
             else if (glyph == ToolGlyph.Text)
             {
@@ -620,17 +634,7 @@ namespace Shiying
             }
             else if (glyph == ToolGlyph.Pin)
             {
-                g.FillEllipse(brush, 11, 5, 10, 10);
-                g.FillPolygon(brush, new PointF[]
-                {
-                    new PointF(16, 26),
-                    new PointF(12.2f, 14),
-                    new PointF(19.8f, 14)
-                });
-                using (var dot = new SolidBrush(hole))
-                {
-                    g.FillEllipse(dot, 14, 7.5f, 4.2f, 4.2f);
-                }
+                DrawPinGlyph(g, pen);
             }
             else if (glyph == ToolGlyph.Undo)
             {
@@ -644,10 +648,32 @@ namespace Shiying
             }
             else if (glyph == ToolGlyph.Ocr)
             {
-                g.DrawRectangle(pen, 8, 8, 12, 15);
-                g.DrawLine(pen, 11, 12, 17, 12);
-                g.DrawLine(pen, 11, 16, 17, 16);
-                g.DrawEllipse(pen, 16, 16, 8, 8);
+                g.DrawLines(pen, new PointF[]
+                {
+                    new PointF(12, 7.5f),
+                    new PointF(8.5f, 7.5f),
+                    new PointF(8.5f, 12)
+                });
+                g.DrawLines(pen, new PointF[]
+                {
+                    new PointF(20, 7.5f),
+                    new PointF(23.5f, 7.5f),
+                    new PointF(23.5f, 12)
+                });
+                g.DrawLines(pen, new PointF[]
+                {
+                    new PointF(8.5f, 20),
+                    new PointF(8.5f, 24.5f),
+                    new PointF(12, 24.5f)
+                });
+                g.DrawLines(pen, new PointF[]
+                {
+                    new PointF(23.5f, 20),
+                    new PointF(23.5f, 24.5f),
+                    new PointF(20, 24.5f)
+                });
+                g.DrawLine(pen, 12, 12, 20, 12);
+                g.DrawLine(pen, 16, 12, 16, 21);
             }
             else if (glyph == ToolGlyph.Translate)
             {
@@ -718,6 +744,26 @@ namespace Shiying
                 g.DrawLine(pen, 10, 10, 22, 22);
                 g.DrawLine(pen, 22, 10, 10, 22);
             }
+        }
+
+        static void DrawPinGlyph(Graphics g, Pen pen)
+        {
+            using (var path = new GraphicsPath())
+            {
+                path.StartFigure();
+                path.AddLine(12, 6, 20, 6);
+                path.AddBezier(20, 6, 19, 8, 18.5f, 10.5f, 19.5f, 12);
+                path.AddLine(19.5f, 12, 23, 16);
+                path.AddBezier(23, 16, 23.5f, 16.7f, 23, 18, 22, 18);
+                path.AddLine(22, 18, 10, 18);
+                path.AddBezier(10, 18, 9, 18, 8.5f, 16.7f, 9, 16);
+                path.AddLine(9, 16, 12.5f, 12);
+                path.AddBezier(12.5f, 12, 13.5f, 10.5f, 13, 8, 12, 6);
+                path.CloseFigure();
+                g.DrawPath(pen, path);
+            }
+
+            g.DrawLine(pen, 16, 18, 16, 26);
         }
 
     }

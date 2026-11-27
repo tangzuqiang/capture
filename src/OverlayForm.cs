@@ -302,6 +302,13 @@ namespace Shiying
                 _noteTimer = null;
             }
 
+            if (_ocrForm != null && !_ocrForm.IsDisposed)
+            {
+                _ocrForm.FormClosed -= ResultFormClosed;
+                _ocrForm.Close();
+                _ocrForm = null;
+            }
+
             if (_toolbar != null && !_toolbar.IsDisposed)
             {
                 _toolbar.Close();
@@ -1375,15 +1382,37 @@ namespace Shiying
 
             if (_ocrForm != null && !_ocrForm.IsDisposed)
             {
+                _ocrForm.FormClosed -= ResultFormClosed;
                 _ocrForm.Close();
             }
 
             _ocrForm = translate ? (Form)new TranslateForm(text) : new OcrForm(text);
+            _ocrForm.FormClosed += ResultFormClosed;
             _ocrForm.Show(this);
             Rectangle monitor = Screen.FromControl(this).WorkingArea;
             int x = monitor.Left + Math.Max(0, (monitor.Width - _ocrForm.Width) / 2);
             int y = monitor.Top + Math.Max(0, (monitor.Height - _ocrForm.Height) / 2);
             _ocrForm.Location = new Point(x, y);
+        }
+
+        void ResultFormClosed(object sender, FormClosedEventArgs e)
+        {
+            Form form = sender as Form;
+            if (form != null)
+            {
+                form.FormClosed -= ResultFormClosed;
+            }
+
+            if (_ocrForm == form)
+            {
+                _ocrForm = null;
+            }
+
+            if (!IsDisposed && !Disposing)
+            {
+                Outcome = null;
+                Close();
+            }
         }
 
         void PlaceText(Point imagePoint)

@@ -222,7 +222,7 @@ namespace Shiying
             try
             {
                 ScreenGrab.CopyText(_result.Text);
-                ShowStatus("已复制译文", false);
+                Close();
             }
             catch (Exception ex)
             {
