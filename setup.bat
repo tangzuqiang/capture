@@ -6,7 +6,8 @@ cd /d "%ROOT%" || exit /b 1
 set "ROOT="
 
 rem ============= release target: edit these lines only =============
-set "PUB_HOST=root@111.230.247.111"
+#set "PUB_HOST=root@111.230.247.111"
+set "PUB_HOST=root@192.168.11.10"
 set "PUB_DIR=/usr/share/nginx/html/shiying"
 set "GIT_REMOTE=origin"
 set "GIT_BRANCH=master"

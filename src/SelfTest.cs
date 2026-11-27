@@ -674,6 +674,20 @@ namespace Shiying
             {
             }
 
+            string server = AppSettings.UpdateServer;
+            try
+            {
+                AppSettings.UpdateServer = "192.168.11.10:8001";
+                if (Updater.FeedUrl != "http://192.168.11.10:8001/shiying/latest.json") return "local feed " + Updater.FeedUrl;
+                AppSettings.UpdateServer = "111.230.247.111";
+                if (Updater.FeedUrl != "http://111.230.247.111/shiying/latest.json") return "public feed " + Updater.FeedUrl;
+                if (AppSettings.NormalizeUpdateServer("invalid") != AppSettings.DefaultUpdateServer) return "invalid server accepted";
+            }
+            finally
+            {
+                AppSettings.UpdateServer = server;
+            }
+
             return null;
         }
 
@@ -1005,6 +1019,7 @@ namespace Shiying
             string llmModel = AppSettings.LlmModel;
             string llmApiKey = AppSettings.LlmApiKey;
             string translateTarget = AppSettings.TranslateTarget;
+            string updateServer = AppSettings.UpdateServer;
             string path = Path.Combine(Path.GetTempPath(), "shiying-settings-" + Guid.NewGuid().ToString("N") + ".txt");
             try
             {
@@ -1034,12 +1049,14 @@ namespace Shiying
                 AppSettings.GestureRgb = Keys.Control | Keys.Alt | Keys.R;
                 AppSettings.GestureWeb = Keys.Control | Keys.Shift | Keys.D;
                 AppSettings.SaveFolder = @"D:\截图 目录";
+                AppSettings.UpdateServer = "111.230.247.111";
                 AppSettings.Save(path);
                 AppSettings.Pace = ScrollPace.Fast;
                 AppSettings.Gesture = Keys.Control | Keys.Alt | Keys.A;
                 AppSettings.GestureRgb = Keys.Control | Keys.Alt | Keys.C;
                 AppSettings.GestureWeb = Keys.Control | Keys.Alt | Keys.X;
                 AppSettings.SaveFolder = "";
+                AppSettings.UpdateServer = AppSettings.DefaultUpdateServer;
                 AppSettings.Load(path);
                 if (AppSettings.Pace != ScrollPace.Slow)
                 {
@@ -1069,6 +1086,11 @@ namespace Shiying
                 if (AppSettings.SaveFolder != @"D:\截图 目录")
                 {
                     return "folder " + AppSettings.SaveFolder;
+                }
+
+                if (AppSettings.UpdateServer != "111.230.247.111")
+                {
+                    return "update server " + AppSettings.UpdateServer;
                 }
 
                 AppSettings.LlmPreset = "DeepSeek";
@@ -1111,6 +1133,7 @@ namespace Shiying
                 AppSettings.LlmModel = llmModel;
                 AppSettings.LlmApiKey = llmApiKey;
                 AppSettings.TranslateTarget = translateTarget;
+                AppSettings.UpdateServer = updateServer;
                 try
                 {
                     File.Delete(path);

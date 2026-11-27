@@ -30,7 +30,14 @@ namespace Shiying
 
     static class Updater
     {
-        public const string FeedUrl = "http://111.230.247.111/shiying/latest.json";
+        public static string FeedUrl
+        {
+            get
+            {
+                return "http://" + AppSettings.NormalizeUpdateServer(AppSettings.UpdateServer)
+                    + "/shiying/latest.json";
+            }
+        }
 
         public static string DownloadFolder
         {

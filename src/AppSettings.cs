@@ -30,6 +30,8 @@ namespace Shiying
         public static bool AutoCheckUpdate = true;
         public static string SkipVersion = "";
         public static DateTime LastUpdateCheck = DateTime.MinValue;
+        public const string DefaultUpdateServer = "192.168.11.10:8001";
+        public static string UpdateServer = DefaultUpdateServer;
 
         public static bool LlmConfigured
         {
@@ -195,6 +197,10 @@ namespace Shiying
                             LastUpdateCheck = new DateTime(ticks, DateTimeKind.Utc);
                         }
                     }
+                    else if (key == "updateServer")
+                    {
+                        UpdateServer = NormalizeUpdateServer(value);
+                    }
                     else if (key == "gesture" || key == "gestureRgb" || key == "gestureWeb" || key == "gestureRecord")
                     {
                         Keys gesture;
@@ -250,6 +256,7 @@ namespace Shiying
                     + "\r\nautoCheckUpdate=" + AutoCheckUpdate
                     + "\r\nskipVersion=" + OneLine(SkipVersion)
                     + "\r\nlastUpdateCheck=" + (LastUpdateCheck == DateTime.MinValue ? "0" : LastUpdateCheck.Ticks.ToString())
+                    + "\r\nupdateServer=" + NormalizeUpdateServer(UpdateServer)
                     + "\r\n";
                 string temp = path + ".tmp";
                 File.WriteAllText(temp, body, Encoding.UTF8);
@@ -270,6 +277,13 @@ namespace Shiying
         static string OneLine(string value)
         {
             return (value ?? "").Replace("\r", "").Replace("\n", "").Trim();
+        }
+
+        public static string NormalizeUpdateServer(string value)
+        {
+            return string.Equals(value, "111.230.247.111", StringComparison.Ordinal)
+                ? "111.230.247.111"
+                : DefaultUpdateServer;
         }
 
         static string Protect(string secret)

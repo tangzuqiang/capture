@@ -188,6 +188,14 @@ namespace Shiying
             menu.Items.Add("翻译模型配置", null, (s, e) => ModelForm.Edit(Visible ? this : null));
             ToolStripItem voiceItem = menu.Items.Add("启动语音助手", null, (s, e) => ToggleVoice());
             ToolStripItem voiceModelItem = menu.Items.Add("下载语音模型", null, (s, e) => DownloadVoiceModels());
+            var updateServerItem = new ToolStripMenuItem("更新服务器");
+            var publicServerItem = new ToolStripMenuItem("111.230.247.111");
+            var localServerItem = new ToolStripMenuItem("192.168.11.10:8001");
+            publicServerItem.Click += (s, e) => SetUpdateServer("111.230.247.111");
+            localServerItem.Click += (s, e) => SetUpdateServer("192.168.11.10:8001");
+            updateServerItem.DropDownItems.Add(publicServerItem);
+            updateServerItem.DropDownItems.Add(localServerItem);
+            menu.Items.Add(updateServerItem);
             menu.Items.Add("检查更新 v" + (AppInfo.Version.Length > 0 ? AppInfo.Version : "?"), null, (s, e) => CheckUpdate(true));
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add("退出", null, (s, e) => ExitApp());
@@ -198,12 +206,29 @@ namespace Shiying
                 voiceModelItem.Text = VoiceModelInstaller.Ready(VoiceOptions.DefaultModelsDir())
                     ? "语音模型（已就绪）"
                     : "下载语音模型…";
+                publicServerItem.Checked = AppSettings.UpdateServer == "111.230.247.111";
+                localServerItem.Checked = !publicServerItem.Checked;
             };
             _tray.ContextMenuStrip = menu;
             _tray.DoubleClick += (s, e) => ShowMain();
             _tray.BalloonTipClicked += (s, e) => OnBalloonClick();
 
             Shown += (s, e) => AutoCheckUpdate();
+        }
+
+        void SetUpdateServer(string server)
+        {
+            string selected = AppSettings.NormalizeUpdateServer(server);
+            if (AppSettings.UpdateServer == selected)
+            {
+                return;
+            }
+
+            AppSettings.UpdateServer = selected;
+            AppSettings.LastUpdateCheck = DateTime.MinValue;
+            _updateInfo = null;
+            AppSettings.Save();
+            Tip("更新服务器已切换为 " + selected);
         }
 
         protected override void OnHandleCreated(EventArgs e)
